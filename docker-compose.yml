@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # MongoDB service using specified image
+  mongodb:
+    image: mongo:7.0.14
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: testdb
+    networks:
+      - mongo-fastapi-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/testdb --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI service
+  fastapi:
+    build: .
+    container_name: fastapi-app
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_DB=testdb
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+    networks:
+      - mongo-fastapi-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  mongo-fastapi-network:
+    driver: bridge
