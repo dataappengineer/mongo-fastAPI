@@ -21,7 +21,7 @@ services:
 
   # FastAPI service
   fastapi:
-    build: .
+    image: mongo-fastapi:latest
     container_name: fastapi-app
     ports:
       - "8000:8000"
