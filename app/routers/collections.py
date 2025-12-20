@@ -91,7 +91,11 @@ async def get_collection_metadata(collection_name: str):
                 else:
                     field_analysis[field]["types"].add(type(value).__name__)
                     if len(field_analysis[field]["samples"]) < 3:
-                        field_analysis[field]["samples"].append(value)
+                        # Convert ObjectId to string for serialization
+                        if field == "_id":
+                            field_analysis[field]["samples"].append(str(value))
+                        else:
+                            field_analysis[field]["samples"].append(value)
         
         # Convert to FieldMetadata objects
         fields = []

@@ -1,10 +1,10 @@
 """
-Script to seed MongoDB with test data.
+Script to seed MongoDB with test data for Regione Puglia.
 Run this after starting the MongoDB container to populate test collections.
 """
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def seed_database():
-    """Seed the database with test collections."""
+    """Seed the database with test collections for Regione Puglia."""
     
     # Connection settings
     mongo_host = os.getenv("MONGO_HOST", "localhost")
@@ -31,236 +31,335 @@ def seed_database():
         
         # Drop existing collections if they exist
         print("🗑️  Dropping existing test collections...")
-        db.customers.drop()
-        db.products.drop()
-        db.orders.drop()
+        db.cittadini.drop()
+        db.servizi_pubblici.drop()
+        db.pratiche_amministrative.drop()
         
-        # Collection 1: Customers
-        print("📝 Creating 'customers' collection...")
-        customers = [
+        # Collection 1: Cittadini (Citizens registered in Regione Puglia)
+        print("📝 Creating 'cittadini' collection...")
+        cittadini = [
             {
-                "customer_id": 1,
-                "name": "Mario Rossi",
-                "email": "mario.rossi@email.it",
-                "age": 35,
-                "city": "Roma",
-                "active": True,
-                "registration_date": datetime(2023, 1, 15),
-                "total_purchases": 1250.50
+                "codice_fiscale": "RSSMRA75H15A662Z",
+                "nome": "Mario",
+                "cognome": "Rossi",
+                "data_nascita": datetime(1975, 6, 15),
+                "luogo_nascita": "Bari",
+                "comune_residenza": "Bari",
+                "provincia": "BA",
+                "indirizzo": "Via Sparano 45",
+                "cap": "70121",
+                "email": "mario.rossi@pec.regione.puglia.it",
+                "telefono": "+39 080 1234567",
+                "stato_civile": "coniugato",
+                "professione": "impiegato pubblico",
+                "data_registrazione": datetime(2020, 3, 15)
             },
             {
-                "customer_id": 2,
-                "name": "Giulia Bianchi",
-                "email": "giulia.bianchi@email.it",
-                "age": 28,
-                "city": "Milano",
-                "active": True,
-                "registration_date": datetime(2023, 3, 22),
-                "total_purchases": 3400.75
+                "codice_fiscale": "BNCLRA85M47F152H",
+                "nome": "Laura",
+                "cognome": "Bianchi",
+                "data_nascita": datetime(1985, 8, 7),
+                "luogo_nascita": "Lecce",
+                "comune_residenza": "Lecce",
+                "provincia": "LE",
+                "indirizzo": "Piazza Sant'Oronzo 12",
+                "cap": "73100",
+                "email": "laura.bianchi@pec.regione.puglia.it",
+                "telefono": "+39 0832 567890",
+                "stato_civile": "nubile",
+                "professione": "insegnante",
+                "data_registrazione": datetime(2019, 9, 22)
             },
             {
-                "customer_id": 3,
-                "name": "Luca Verdi",
-                "email": "luca.verdi@email.it",
-                "age": 42,
-                "city": "Napoli",
-                "active": False,
-                "registration_date": datetime(2022, 11, 8),
-                "total_purchases": 890.00
+                "codice_fiscale": "VRDGPP70D12E716M",
+                "nome": "Giuseppe",
+                "cognome": "Verdi",
+                "data_nascita": datetime(1970, 4, 12),
+                "luogo_nascita": "Taranto",
+                "comune_residenza": "Taranto",
+                "provincia": "TA",
+                "indirizzo": "Corso Umberto I 78",
+                "cap": "74123",
+                "email": "giuseppe.verdi@pec.regione.puglia.it",
+                "telefono": "+39 099 7654321",
+                "stato_civile": "divorziato",
+                "professione": "commerciante",
+                "data_registrazione": datetime(2021, 1, 10)
             },
             {
-                "customer_id": 4,
-                "name": "Anna Ferrari",
-                "email": "anna.ferrari@email.it",
-                "age": 31,
-                "city": "Torino",
-                "active": True,
-                "registration_date": datetime(2023, 5, 10),
-                "total_purchases": 2150.25
+                "codice_fiscale": "FRRNNA82B55L049D",
+                "nome": "Anna",
+                "cognome": "Ferraro",
+                "data_nascita": datetime(1982, 2, 15),
+                "luogo_nascita": "Foggia",
+                "comune_residenza": "Foggia",
+                "provincia": "FG",
+                "indirizzo": "Viale XXIV Maggio 33",
+                "cap": "71121",
+                "email": "anna.ferraro@pec.regione.puglia.it",
+                "telefono": "+39 0881 223344",
+                "stato_civile": "coniugata",
+                "professione": "medico",
+                "data_registrazione": datetime(2020, 7, 5)
             },
             {
-                "customer_id": 5,
-                "name": "Paolo Colombo",
-                "email": "paolo.colombo@email.it",
-                "age": None,  # Missing age to test null handling
-                "city": "Firenze",
-                "active": True,
-                "registration_date": datetime(2023, 7, 3),
-                "total_purchases": 670.80
+                "codice_fiscale": "CLMPLA90R18A285Y",
+                "nome": "Paolo",
+                "cognome": "Colombo",
+                "data_nascita": datetime(1990, 10, 18),
+                "luogo_nascita": "Brindisi",
+                "comune_residenza": "Brindisi",
+                "provincia": "BR",
+                "indirizzo": "Via Appia 156",
+                "cap": "72100",
+                "email": "paolo.colombo@pec.regione.puglia.it",
+                "telefono": None,  # Missing phone to test null handling
+                "stato_civile": "celibe",
+                "professione": "ingegnere",
+                "data_registrazione": datetime(2022, 3, 20)
+            },
+            {
+                "codice_fiscale": "GRCMRT88L52F842W",
+                "nome": "Marta",
+                "cognome": "Greco",
+                "data_nascita": datetime(1988, 7, 12),
+                "luogo_nascita": "Andria",
+                "comune_residenza": "Barletta",
+                "provincia": "BT",
+                "indirizzo": "Corso Garibaldi 89",
+                "cap": "76121",
+                "email": "marta.greco@pec.regione.puglia.it",
+                "telefono": "+39 0883 998877",
+                "stato_civile": "coniugata",
+                "professione": "avvocato",
+                "data_registrazione": datetime(2021, 11, 8)
             }
         ]
-        db.customers.insert_many(customers)
-        print(f"   ✅ Inserted {len(customers)} customers")
+        db.cittadini.insert_many(cittadini)
+        print(f"   ✅ Inserted {len(cittadini)} cittadini")
         
-        # Collection 2: Products
-        print("📝 Creating 'products' collection...")
-        products = [
+        # Collection 2: Servizi Pubblici (Public Services offered by Regione Puglia)
+        print("📝 Creating 'servizi_pubblici' collection...")
+        servizi_pubblici = [
             {
-                "product_id": 101,
-                "name": "Laptop Dell XPS 15",
-                "category": "Electronics",
-                "price": 1299.99,
-                "in_stock": True,
-                "quantity": 15,
-                "specs": {
-                    "cpu": "Intel i7",
-                    "ram": "16GB",
-                    "storage": "512GB SSD"
+                "codice_servizio": "SP-001",
+                "nome_servizio": "Rilascio Carta d'Identità Elettronica",
+                "categoria": "Anagrafe e Stato Civile",
+                "descrizione": "Servizio per il rilascio della carta d'identità elettronica presso gli uffici comunali",
+                "assessorato": "Affari Generali",
+                "costo": 22.21,
+                "tempo_medio_erogazione_giorni": 5,
+                "documenti_richiesti": ["documento identità scaduto", "codice fiscale", "foto tessera"],
+                "modalita_erogazione": ["sportello fisico", "prenotazione online"],
+                "contatti": {
+                    "telefono": "080 5406111",
+                    "email": "anagrafe@regione.puglia.it",
+                    "pec": "anagrafe.puglia@pec.regione.puglia.it"
                 },
-                "tags": ["laptop", "dell", "premium"]
+                "attivo": True
             },
             {
-                "product_id": 102,
-                "name": "Mouse Logitech MX Master",
-                "category": "Accessories",
-                "price": 89.99,
-                "in_stock": True,
-                "quantity": 45,
-                "specs": {
-                    "wireless": True,
-                    "dpi": 4000
+                "codice_servizio": "SP-002",
+                "nome_servizio": "Certificato di Residenza",
+                "categoria": "Anagrafe e Stato Civile",
+                "descrizione": "Rilascio certificato di residenza in formato digitale o cartaceo",
+                "assessorato": "Affari Generali",
+                "costo": 0.00,
+                "tempo_medio_erogazione_giorni": 1,
+                "documenti_richiesti": ["documento identità valido"],
+                "modalita_erogazione": ["online", "sportello fisico"],
+                "contatti": {
+                    "telefono": "080 5406111",
+                    "email": "certificati@regione.puglia.it",
+                    "pec": "certificati.puglia@pec.regione.puglia.it"
                 },
-                "tags": ["mouse", "wireless", "ergonomic"]
+                "attivo": True
             },
             {
-                "product_id": 103,
-                "name": "Monitor Samsung 27\"",
-                "category": "Electronics",
-                "price": 349.99,
-                "in_stock": False,
-                "quantity": 0,
-                "specs": {
-                    "size": "27 inch",
-                    "resolution": "2560x1440",
-                    "refresh_rate": "144Hz"
+                "codice_servizio": "SP-003",
+                "nome_servizio": "Autorizzazione Paesaggistica",
+                "categoria": "Urbanistica e Territorio",
+                "descrizione": "Autorizzazione per interventi edilizi in zone sottoposte a vincolo paesaggistico",
+                "assessorato": "Ambiente e Territorio",
+                "costo": 150.00,
+                "tempo_medio_erogazione_giorni": 60,
+                "documenti_richiesti": ["progetto tecnico", "relazione paesaggistica", "documentazione fotografica"],
+                "modalita_erogazione": ["sportello fisico", "portale SUAP"],
+                "contatti": {
+                    "telefono": "080 5403200",
+                    "email": "paesaggio@regione.puglia.it",
+                    "pec": "ambiente.puglia@pec.regione.puglia.it"
                 },
-                "tags": ["monitor", "gaming", "4K"]
+                "attivo": True
             },
             {
-                "product_id": 104,
-                "name": "Tastiera Meccanica RGB",
-                "category": "Accessories",
-                "price": 129.99,
-                "in_stock": True,
-                "quantity": 30,
-                "specs": {
-                    "switches": "Cherry MX Red",
-                    "backlight": "RGB"
+                "codice_servizio": "SP-004",
+                "nome_servizio": "Tessera Sanitaria",
+                "categoria": "Sanità",
+                "descrizione": "Attivazione e rinnovo tessera sanitaria regionale",
+                "assessorato": "Politiche della Salute",
+                "costo": 0.00,
+                "tempo_medio_erogazione_giorni": 15,
+                "documenti_richiesti": ["codice fiscale", "documento identità", "certificato di residenza"],
+                "modalita_erogazione": ["ASL territoriale", "online"],
+                "contatti": {
+                    "telefono": "080 5404000",
+                    "email": "sanita@regione.puglia.it",
+                    "pec": "sanita.puglia@pec.regione.puglia.it"
                 },
-                "tags": ["keyboard", "mechanical", "gaming"]
+                "attivo": True
             },
             {
-                "product_id": 105,
-                "name": "Webcam HD",
-                "category": "Accessories",
-                "price": 59.99,
-                "in_stock": True,
-                "quantity": 20,
-                "specs": None,  # Null specs to test null handling
-                "tags": ["webcam", "1080p"]
+                "codice_servizio": "SP-005",
+                "nome_servizio": "Borse di Studio Regionali",
+                "categoria": "Istruzione e Formazione",
+                "descrizione": "Erogazione borse di studio per studenti meritevoli residenti in Puglia",
+                "assessorato": "Diritto allo Studio",
+                "costo": 0.00,
+                "tempo_medio_erogazione_giorni": 90,
+                "documenti_richiesti": ["ISEE", "certificato di iscrizione", "autocertificazione merito"],
+                "modalita_erogazione": ["portale ADISU"],
+                "contatti": None,  # Null contact to test null handling
+                "attivo": False
+            },
+            {
+                "codice_servizio": "SP-006",
+                "nome_servizio": "Permesso di Costruire",
+                "categoria": "Urbanistica e Territorio",
+                "descrizione": "Autorizzazione per nuove costruzioni e ristrutturazioni importanti",
+                "assessorato": "Ambiente e Territorio",
+                "costo": 500.00,
+                "tempo_medio_erogazione_giorni": 120,
+                "documenti_richiesti": ["progetto architettonico", "calcoli strutturali", "relazione tecnica", "titolo proprietà"],
+                "modalita_erogazione": ["sportello SUE comunale", "portale SUAP"],
+                "contatti": {
+                    "telefono": "080 5403250",
+                    "email": "edilizia@regione.puglia.it",
+                    "pec": "edilizia.puglia@pec.regione.puglia.it"
+                },
+                "attivo": True
             }
         ]
-        db.products.insert_many(products)
-        print(f"   ✅ Inserted {len(products)} products")
+        db.servizi_pubblici.insert_many(servizi_pubblici)
+        print(f"   ✅ Inserted {len(servizi_pubblici)} servizi pubblici")
         
-        # Collection 3: Orders
-        print("📝 Creating 'orders' collection...")
-        orders = [
+        # Collection 3: Pratiche Amministrative (Administrative Procedures)
+        print("📝 Creating 'pratiche_amministrative' collection...")
+        pratiche_amministrative = [
             {
-                "order_id": 1001,
-                "customer_id": 1,
-                "order_date": datetime(2023, 6, 15, 10, 30),
-                "status": "delivered",
-                "items": [
-                    {"product_id": 102, "quantity": 1, "price": 89.99},
-                    {"product_id": 104, "quantity": 1, "price": 129.99}
-                ],
-                "total_amount": 219.98,
-                "shipping_address": {
-                    "street": "Via Roma 123",
-                    "city": "Roma",
-                    "postal_code": "00100"
-                }
+                "numero_pratica": "PR-2024-00123",
+                "codice_fiscale_richiedente": "RSSMRA75H15A662Z",
+                "codice_servizio": "SP-001",
+                "nome_servizio": "Rilascio Carta d'Identità Elettronica",
+                "data_presentazione": datetime(2024, 1, 15, 9, 30),
+                "data_completamento": datetime(2024, 1, 20, 15, 45),
+                "stato": "completata",
+                "ufficio_competente": "Ufficio Anagrafe - Bari",
+                "operatore_assegnato": "Dott.ssa Maria Lorusso",
+                "importo_pagato": 22.21,
+                "metodo_pagamento": "PagoPA",
+                "note": "Pratica evasa regolarmente. Documento ritirato presso lo sportello.",
+                "allegati": ["ricevuta_pagamento.pdf", "documento_identita_scaduto.pdf"]
             },
             {
-                "order_id": 1002,
-                "customer_id": 2,
-                "order_date": datetime(2023, 7, 20, 14, 15),
-                "status": "shipped",
-                "items": [
-                    {"product_id": 101, "quantity": 1, "price": 1299.99}
-                ],
-                "total_amount": 1299.99,
-                "shipping_address": {
-                    "street": "Corso Buenos Aires 45",
-                    "city": "Milano",
-                    "postal_code": "20100"
-                }
+                "numero_pratica": "PR-2024-00234",
+                "codice_fiscale_richiedente": "BNCLRA85M47F152H",
+                "codice_servizio": "SP-002",
+                "nome_servizio": "Certificato di Residenza",
+                "data_presentazione": datetime(2024, 2, 10, 14, 20),
+                "data_completamento": datetime(2024, 2, 11, 10, 15),
+                "stato": "completata",
+                "ufficio_competente": "Ufficio Anagrafe - Lecce",
+                "operatore_assegnato": "Sig. Francesco De Luca",
+                "importo_pagato": 0.00,
+                "metodo_pagamento": "gratuito",
+                "note": "Certificato rilasciato in formato digitale",
+                "allegati": ["certificato_residenza.pdf"]
             },
             {
-                "order_id": 1003,
-                "customer_id": 4,
-                "order_date": datetime(2023, 8, 5, 9, 45),
-                "status": "processing",
-                "items": [
-                    {"product_id": 103, "quantity": 1, "price": 349.99},
-                    {"product_id": 105, "quantity": 2, "price": 59.99}
-                ],
-                "total_amount": 469.97,
-                "shipping_address": {
-                    "street": "Via Po 78",
-                    "city": "Torino",
-                    "postal_code": "10100"
-                }
+                "numero_pratica": "PR-2024-00345",
+                "codice_fiscale_richiedente": "FRRNNA82B55L049D",
+                "codice_servizio": "SP-003",
+                "nome_servizio": "Autorizzazione Paesaggistica",
+                "data_presentazione": datetime(2024, 3, 5, 11, 0),
+                "data_completamento": None,
+                "stato": "in lavorazione",
+                "ufficio_competente": "Assessorato Ambiente - Regione Puglia",
+                "operatore_assegnato": "Arch. Giovanni Palmieri",
+                "importo_pagato": 150.00,
+                "metodo_pagamento": "bonifico bancario",
+                "note": "Pratica in fase di valutazione tecnica. In attesa parere soprintendenza.",
+                "allegati": ["progetto_tecnico.pdf", "relazione_paesaggistica.pdf", "foto_stato_attuale.zip"]
             },
             {
-                "order_id": 1004,
-                "customer_id": 2,
-                "order_date": datetime(2023, 8, 10, 16, 20),
-                "status": "delivered",
-                "items": [
-                    {"product_id": 102, "quantity": 2, "price": 89.99},
-                    {"product_id": 104, "quantity": 1, "price": 129.99}
-                ],
-                "total_amount": 309.97,
-                "shipping_address": None  # Null address to test null handling
+                "numero_pratica": "PR-2024-00456",
+                "codice_fiscale_richiedente": "VRDGPP70D12E716M",
+                "codice_servizio": "SP-004",
+                "nome_servizio": "Tessera Sanitaria",
+                "data_presentazione": datetime(2024, 2, 20, 8, 45),
+                "data_completamento": datetime(2024, 3, 8, 12, 30),
+                "stato": "completata",
+                "ufficio_competente": "ASL Taranto",
+                "operatore_assegnato": "Dott. Michele Tarantino",
+                "importo_pagato": 0.00,
+                "metodo_pagamento": "gratuito",
+                "note": "Tessera sanitaria spedita al domicilio del richiedente",
+                "allegati": ["richiesta_tessera.pdf"]
             },
             {
-                "order_id": 1005,
-                "customer_id": 5,
-                "order_date": datetime(2023, 8, 12, 11, 0),
-                "status": "pending",
-                "items": [
-                    {"product_id": 105, "quantity": 1, "price": 59.99}
-                ],
-                "total_amount": 59.99,
-                "shipping_address": {
-                    "street": "Piazza Signoria 9",
-                    "city": "Firenze",
-                    "postal_code": "50100"
-                }
+                "numero_pratica": "PR-2024-00567",
+                "codice_fiscale_richiedente": "GRCMRT88L52F842W",
+                "codice_servizio": "SP-006",
+                "nome_servizio": "Permesso di Costruire",
+                "data_presentazione": datetime(2023, 11, 15, 10, 0),
+                "data_completamento": None,
+                "stato": "sospesa",
+                "ufficio_competente": "Ufficio Tecnico Comunale - Barletta",
+                "operatore_assegnato": "Ing. Sergio Manfredi",
+                "importo_pagato": 500.00,
+                "metodo_pagamento": "PagoPA",
+                "note": "Pratica sospesa. Richiesta integrazione documentale: mancano calcoli strutturali aggiornati.",
+                "allegati": ["progetto_architettonico.pdf", "planimetria.dwg"]
+            },
+            {
+                "numero_pratica": "PR-2024-00678",
+                "codice_fiscale_richiedente": "CLMPLA90R18A285Y",
+                "codice_servizio": "SP-002",
+                "nome_servizio": "Certificato di Residenza",
+                "data_presentazione": datetime(2024, 3, 12, 16, 30),
+                "data_completamento": None,
+                "stato": "presentata",
+                "ufficio_competente": "Ufficio Anagrafe - Brindisi",
+                "operatore_assegnato": None,  # Not yet assigned
+                "importo_pagato": 0.00,
+                "metodo_pagamento": "gratuito",
+                "note": None,
+                "allegati": []
             }
         ]
-        db.orders.insert_many(orders)
-        print(f"   ✅ Inserted {len(orders)} orders")
+        db.pratiche_amministrative.insert_many(pratiche_amministrative)
+        print(f"   ✅ Inserted {len(pratiche_amministrative)} pratiche amministrative")
         
         # Create indexes for better performance
         print("🔍 Creating indexes...")
-        db.customers.create_index("customer_id", unique=True)
-        db.customers.create_index("email", unique=True)
-        db.products.create_index("product_id", unique=True)
-        db.orders.create_index("order_id", unique=True)
-        db.orders.create_index("customer_id")
+        db.cittadini.create_index("codice_fiscale", unique=True)
+        db.cittadini.create_index("email", unique=True)
+        db.cittadini.create_index("comune_residenza")
+        db.servizi_pubblici.create_index("codice_servizio", unique=True)
+        db.servizi_pubblici.create_index("categoria")
+        db.pratiche_amministrative.create_index("numero_pratica", unique=True)
+        db.pratiche_amministrative.create_index("codice_fiscale_richiedente")
+        db.pratiche_amministrative.create_index("stato")
         print("   ✅ Indexes created")
         
         # Summary
         print("\n" + "="*50)
-        print("🎉 Database seeding completed successfully!")
+        print("🎉 Database seeding completato con successo!")
         print("="*50)
-        print(f"📊 Collections created:")
-        print(f"   - customers: {db.customers.count_documents({})} documents")
-        print(f"   - products: {db.products.count_documents({})} documents")
-        print(f"   - orders: {db.orders.count_documents({})} documents")
+        print(f"📊 Collections create:")
+        print(f"   - cittadini: {db.cittadini.count_documents({})} documenti")
+        print(f"   - servizi_pubblici: {db.servizi_pubblici.count_documents({})} documenti")
+        print(f"   - pratiche_amministrative: {db.pratiche_amministrative.count_documents({})} documenti")
         print("="*50)
         
         # Close connection
