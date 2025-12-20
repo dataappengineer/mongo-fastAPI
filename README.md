@@ -1,4 +1,4 @@
-# API REST MongoDB - Regione Puglia
+# API REST MongoDB con FastAPI
 
 API REST sviluppata con FastAPI e PyMongo per interagire con database MongoDB. Fornisce endpoint per gestire collezioni, metadati, dati e validazione di query SQL per PostgreSQL.
 
@@ -163,7 +163,7 @@ GET /collections/{nome_collezione}/metadata
       "field_name": "email_pec",
       "data_types": ["str"],
       "null_count": 0,
-      "sample_values": ["mario.rossi@pec.regione.puglia.it"]
+      "sample_values": ["mario.rossi@pec.example.it"]
     },
     {
       "field_name": "comune_residenza",
@@ -215,7 +215,7 @@ GET /collections/{nome_collezione}/data?max_righe={n}
       "codice_fiscale": "RSSMRA85M01H501X",
       "nome": "Mario",
       "cognome": "Rossi",
-      "email_pec": "mario.rossi@pec.regione.puglia.it",
+      "email_pec": "mario.rossi@pec.example.it",
       "comune_residenza": "Bari",
       "provincia": "BA",
       "cap": "70121"
@@ -316,7 +316,7 @@ Per connettere l'API a un database MongoDB esistente (non in Docker):
 ### 1. Modificare il file `.env`
 
 ```env
-MONGO_HOST=mongodb.regione.puglia.local
+MONGO_HOST=mongodb.example.com
 MONGO_PORT=27017
 MONGO_DB=nome_database
 MONGO_USER=username
@@ -369,15 +369,15 @@ python scripts/seed_mongo.py
 
 ## 📊 Dati di Test
 
-Lo script `seed_mongo.py` crea le seguenti collezioni con dati della Regione Puglia:
+Lo script `seed_mongo.py` crea le seguenti collezioni con dati di esempio:
 
 ### 1. **cittadini** (6 documenti)
-Dati anagrafici cittadini pugliesi:
+Dati anagrafici cittadini italiani:
 - Campi: codice_fiscale, nome, cognome, email_pec, comune_residenza, provincia, cap
 - Esempi: Bari, Lecce, Taranto, Foggia, Brindisi, Barletta
 
 ### 2. **servizi_pubblici** (6 documenti)
-Servizi pubblici regionali:
+Servizi pubblici:
 - Campi: codice_servizio, nome_servizio, categoria, costo_euro, tempo_medio_giorni, ufficio_competente
 - Esempi: Certificato residenza, Cambio residenza, Permesso ZTL, etc.
 
@@ -547,3 +547,7 @@ curl -X POST http://localhost:8000/sql/validate \
 - L'endpoint di validazione SQL rileva pattern di SQL injection comuni
 - MongoDB Connection String supporta autenticazione con username/password
 - Consigliato l'uso di network Docker isolate in produzione
+
+## 📄 Licenza
+
+MIT License
