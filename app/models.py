@@ -35,3 +35,17 @@ class CollectionDataResponse(BaseModel):
     total_count: int = Field(..., description="Total documents in collection")
     returned_count: int = Field(..., description="Number of documents returned")
     max_righe: Optional[int] = Field(None, description="Maximum rows requested")
+
+
+class SQLValidationRequest(BaseModel):
+    """Request model for SQL query validation."""
+    query: str = Field(..., description="SQL query to validate", min_length=1)
+
+
+class SQLValidationResponse(BaseModel):
+    """Response model for SQL query validation."""
+    valid: bool = Field(..., description="Whether the query is valid")
+    query: str = Field(..., description="The query that was validated")
+    formatted_query: Optional[str] = Field(None, description="Formatted/prettified version of the query")
+    error_message: Optional[str] = Field(None, description="Error message if query is invalid")
+    query_type: Optional[str] = Field(None, description="Type of SQL query (SELECT, INSERT, UPDATE, etc.)")

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 from app.database import close_connection
-from app.routers import collections
+from app.routers import collections, sql
 
 
 @asynccontextmanager
@@ -32,6 +32,7 @@ app = FastAPI(
 
 # Include routers
 app.include_router(collections.router)
+app.include_router(sql.router)
 
 
 @app.get("/")
