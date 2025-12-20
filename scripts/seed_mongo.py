@@ -34,6 +34,9 @@ def seed_database():
         db.cittadini.drop()
         db.servizi_pubblici.drop()
         db.pratiche_amministrative.drop()
+        db.vista_cittadini_per_comune.drop()
+        db.vista_servizi_per_categoria.drop()
+        db.metriche_accessi.drop()
         
         # Collection 1: Cittadini (Citizens registered in Regione Puglia)
         print("📝 Creating 'cittadini' collection...")
@@ -352,6 +355,90 @@ def seed_database():
         db.pratiche_amministrative.create_index("stato")
         print("   ✅ Indexes created")
         
+        # Create views for testing
+        print("📝 Creating views...")
+        
+        # View 1: Active citizens by city
+        try:
+            db.command({
+                "create": "vista_cittadini_per_comune",
+                "viewOn": "cittadini",
+                "pipeline": [
+                    {
+                        "$group": {
+                            "_id": "$comune_residenza",
+                            "totale_cittadini": {"$sum": 1},
+                            "professioni": {"$push": "$professione"}
+                        }
+                    },
+                    {"$sort": {"totale_cittadini": -1}}
+                ]
+            })
+            print("   ✅ Created view 'vista_cittadini_per_comune'")
+        except Exception as e:
+            if "already exists" not in str(e):
+                print(f"   ⚠️  Warning creating view: {e}")
+        
+        # View 2: Services by category
+        try:
+            db.command({
+                "create": "vista_servizi_per_categoria",
+                "viewOn": "servizi_pubblici",
+                "pipeline": [
+                    {
+                        "$group": {
+                            "_id": "$categoria",
+                            "numero_servizi": {"$sum": 1},
+                            "costo_medio": {"$avg": "$costo"},
+                            "tempo_medio_giorni": {"$avg": "$tempo_medio_erogazione_giorni"}
+                        }
+                    }
+                ]
+            })
+            print("   ✅ Created view 'vista_servizi_per_categoria'")
+        except Exception as e:
+            if "already exists" not in str(e):
+                print(f"   ⚠️  Warning creating view: {e}")
+        
+        # Create timeseries collection for monitoring
+        print("📝 Creating timeseries collection...")
+        try:
+            db.create_collection(
+                "metriche_accessi",
+                timeseries={
+                    "timeField": "timestamp",
+                    "metaField": "servizio",
+                    "granularity": "hours"
+                }
+            )
+            
+            # Insert sample timeseries data
+            metriche_data = [
+                {
+                    "timestamp": datetime(2024, 12, 19, 10, 0),
+                    "servizio": "SP-001",
+                    "accessi": 15,
+                    "tempo_medio_risposta_ms": 250
+                },
+                {
+                    "timestamp": datetime(2024, 12, 19, 11, 0),
+                    "servizio": "SP-001",
+                    "accessi": 23,
+                    "tempo_medio_risposta_ms": 280
+                },
+                {
+                    "timestamp": datetime(2024, 12, 19, 12, 0),
+                    "servizio": "SP-002",
+                    "accessi": 45,
+                    "tempo_medio_risposta_ms": 120
+                }
+            ]
+            db.metriche_accessi.insert_many(metriche_data)
+            print("   ✅ Created timeseries collection 'metriche_accessi' with sample data")
+        except Exception as e:
+            if "already exists" not in str(e):
+                print(f"   ⚠️  Warning creating timeseries: {e}")
+        
         # Summary
         print("\n" + "="*50)
         print("🎉 Database seeding completato con successo!")
@@ -360,6 +447,10 @@ def seed_database():
         print(f"   - cittadini: {db.cittadini.count_documents({})} documenti")
         print(f"   - servizi_pubblici: {db.servizi_pubblici.count_documents({})} documenti")
         print(f"   - pratiche_amministrative: {db.pratiche_amministrative.count_documents({})} documenti")
+        print(f"   - metriche_accessi (timeseries): {db.metriche_accessi.count_documents({})} documenti")
+        print(f"📊 Views create:")
+        print(f"   - vista_cittadini_per_comune")
+        print(f"   - vista_servizi_per_categoria")
         print("="*50)
         
         # Close connection

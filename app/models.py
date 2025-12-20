@@ -5,9 +5,15 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 
+class CollectionInfo(BaseModel):
+    """Information about a single collection."""
+    name: str = Field(..., description="Name of the collection")
+    type: str = Field(..., description="Type: collection, view, timeseries")
+    
+    
 class CollectionListResponse(BaseModel):
     """Response model for listing collections."""
-    collections: List[str] = Field(..., description="List of collection names in the database")
+    collections: List[CollectionInfo] = Field(..., description="List of collections with their types")
     count: int = Field(..., description="Total number of collections")
 
 

@@ -20,18 +20,57 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 @router.get("/", response_model=CollectionListResponse)
 async def list_collections():
     """
-    Endpoint 1: List all collections in the database.
+    Endpoint 1: List all collections in the database with their types.
+    
+    Returns collection name, type (collection, view, timeseries), and metadata.
     
     Returns:
-        CollectionListResponse: List of collection names and count
+        CollectionListResponse: List of collections with type information
     """
     try:
         db: Database = get_database()
-        collections = db.list_collection_names()
+        
+        # Get detailed collection information using listCollections command
+        collections_info = []
+        collections_cursor = db.list_collections()
+        
+        for coll_info in collections_cursor:
+            name = coll_info.get("name")
+            
+            # Skip system collections
+            if name.startswith("system.") and name != "system.views":
+                continue
+            
+            # Determine collection type
+            # First check the 'type' field directly (MongoDB 3.4+)
+            coll_type = coll_info.get("type")
+            options = coll_info.get("options", {})
+            
+            if coll_type == "view":
+                coll_type = "view"
+            elif coll_type == "timeseries":
+                coll_type = "timeseries"
+            elif "viewOn" in options:
+                # Fallback: check options for viewOn
+                coll_type = "view"
+            elif "timeseries" in options:
+                # Fallback: check options for timeseries
+                coll_type = "timeseries"
+            elif options.get("capped", False):
+                # Check for capped collections
+                coll_type = "capped"
+            else:
+                coll_type = "collection"
+            
+            from app.models import CollectionInfo
+            collections_info.append(CollectionInfo(
+                name=name,
+                type=coll_type
+            ))
         
         return CollectionListResponse(
-            collections=collections,
-            count=len(collections)
+            collections=collections_info,
+            count=len(collections_info)
         )
     except PyMongoError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
