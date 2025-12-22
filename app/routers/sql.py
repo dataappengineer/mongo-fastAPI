@@ -130,18 +130,27 @@ async def validate_sql_query(request: SQLValidationRequest):
                         error_message="SELECT statement incomplete - no columns specified"
                     )
                 
-                # Check if it's not just a number or invalid syntax
+                # Extract first token (up to space, comma, or FROM)
                 first_token = after_select.split()[0] if after_select.split() else ""
-                if first_token and not any([
-                    first_token == '*',
-                    first_token.replace('_', '').replace('.', '').isalnum(),  # Valid identifier
-                    first_token.upper() in ['DISTINCT', 'ALL', 'TOP'],  # Valid keywords
-                ]):
-                    return SQLValidationResponse(
-                        valid=False,
-                        query=query,
-                        error_message=f"Invalid column specification after SELECT: '{first_token}'"
-                    )
+                
+                # Allow if it contains:
+                # - * (all columns)
+                # - Valid identifier (alphanumeric + underscore)
+                # - Function call (contains parentheses)
+                # - Multiple columns (contains comma means it's a column list)
+                # - Valid SQL keywords
+                if first_token and '(' not in after_select and ',' not in after_select:
+                    # Only validate simple cases without functions or multiple columns
+                    if not any([
+                        first_token == '*',
+                        first_token.replace('_', '').replace('.', '').isalnum(),  # Valid identifier
+                        first_token.upper() in ['DISTINCT', 'ALL', 'TOP'],  # Valid keywords
+                    ]):
+                        return SQLValidationResponse(
+                            valid=False,
+                            query=query,
+                            error_message=f"Invalid column specification after SELECT: '{first_token}'"
+                        )
         
         # Check for WHERE clause without proper comparison operators
         if 'WHERE' in query_upper:
