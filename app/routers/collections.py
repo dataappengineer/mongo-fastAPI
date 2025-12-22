@@ -79,13 +79,14 @@ async def list_collections():
 @router.get("/{collection_name}/metadata", response_model=CollectionMetadata)
 async def get_collection_metadata(collection_name: str):
     """
-    Endpoint 2: Get metadata for a specific collection.
+    Endpoint 2: Get metadata for a specific collection, view, or timeseries.
     
     Returns collection name, document count, field metadata (data types, columns),
-    and other collection information.
+    and other collection information. Works with regular collections, views,
+    timeseries collections, and capped collections.
     
     Args:
-        collection_name: Name of the collection
+        collection_name: Name of the collection/view
         
     Returns:
         CollectionMetadata: Detailed metadata about the collection
@@ -97,20 +98,46 @@ async def get_collection_metadata(collection_name: str):
         if collection_name not in db.list_collection_names():
             raise HTTPException(status_code=404, detail=f"Collection '{collection_name}' not found")
         
+        # Determine collection type
+        coll_info = db.list_collections(filter={"name": collection_name})
+        coll_info_list = list(coll_info)
+        if not coll_info_list:
+            raise HTTPException(status_code=404, detail=f"Collection '{collection_name}' not found")
+        
+        coll_data = coll_info_list[0]
+        coll_type = coll_data.get("type")
+        options = coll_data.get("options", {})
+        is_view = coll_type == "view" or "viewOn" in options
+        is_timeseries = coll_type == "timeseries" or "timeseries" in options
+        
         collection = db[collection_name]
         
-        # Get document count
-        document_count = collection.count_documents({})
+        # Get document count (works for all types)
+        try:
+            document_count = collection.count_documents({})
+        except Exception:
+            # Fallback for views that might have issues with count_documents
+            document_count = len(list(collection.find().limit(1000)))
         
-        # Get collection stats
-        stats = db.command("collStats", collection_name)
-        size_bytes = stats.get("size", 0)
+        # Get collection stats (might not work for views)
+        size_bytes = 0
+        try:
+            stats = db.command("collStats", collection_name)
+            size_bytes = stats.get("size", 0)
+        except Exception:
+            # Views don't have size stats, that's OK
+            pass
         
-        # Get indexes
-        indexes = [idx["name"] for idx in collection.list_indexes()]
+        # Get indexes (views don't have their own indexes)
+        indexes = []
+        try:
+            indexes = [idx["name"] for idx in collection.list_indexes()]
+        except Exception:
+            # Views don't have indexes, use empty list
+            indexes = []
         
-        # Analyze fields by sampling documents (limit to 100 for performance)
-        sample_size = min(100, document_count)
+        # Analyze fields by sampling documents (works for all types)
+        sample_size = min(100, document_count) if document_count > 0 else 100
         documents = list(collection.find().limit(sample_size))
         
         # Build field metadata

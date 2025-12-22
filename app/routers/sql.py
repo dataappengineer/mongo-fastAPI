@@ -86,8 +86,25 @@ async def validate_sql_query(request: SQLValidationRequest):
                         error_message=f"Invalid identifier: '{word}' - identifiers cannot start with '.'"
                     )
         
-        # For SELECT queries, must have columns or * after SELECT
+        # For SELECT queries, must have columns or * after SELECT AND must have FROM clause
         if query_type == 'SELECT':
+            # SELECT queries must have FROM clause (except for special cases like SELECT 1, SELECT NOW(), etc.)
+            if 'FROM' not in query_upper:
+                # Allow SELECT without FROM only if it's a function call or constant
+                select_pos = query_upper.find('SELECT')
+                after_select = query[select_pos + 6:].strip()
+                
+                # Check if it contains function call (has parentheses) or is just a constant/expression
+                has_function = '(' in after_select and ')' in after_select
+                is_simple_value = after_select and (after_select[0].isdigit() or after_select.startswith("'") or after_select.startswith('"'))
+                
+                if not has_function and not is_simple_value:
+                    return SQLValidationResponse(
+                        valid=False,
+                        query=query,
+                        error_message="SELECT statement must have a FROM clause (e.g., SELECT * FROM table_name)"
+                    )
+            
             # Check if SELECT is immediately followed by FROM (missing columns)
             if 'SELECT' in query_upper and 'FROM' in query_upper:
                 select_pos = query_upper.find('SELECT')
@@ -101,7 +118,7 @@ async def validate_sql_query(request: SQLValidationRequest):
                     )
             
             # Check if SELECT has valid column specification
-            elif 'SELECT' in query_upper:
+            if 'SELECT' in query_upper:
                 select_pos = query_upper.find('SELECT')
                 after_select = query[select_pos + 6:].strip()
                 
