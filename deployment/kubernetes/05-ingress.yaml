@@ -1,0 +1,45 @@
+# Ingress to expose FastAPI application externally
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fastapi-ingress
+  namespace: dss  # Change if using a different namespace
+  labels:
+    app: fastapi-mongodb-api
+  annotations:
+    # Nginx Ingress Controller annotations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    
+    # CORS configuration (optional - enable if needed for frontend)
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
+    
+    # Rate limiting (optional - uncomment if needed)
+    # nginx.ingress.kubernetes.io/limit-rps: "100"
+    
+spec:
+  # IngressClassName (use if your cluster has multiple ingress controllers)
+  # ingressClassName: nginx
+  
+  rules:
+  # ⚠️ CHANGE THIS: Update with your actual hostname
+  - host: fastapi.dss.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fastapi-service
+            port:
+              number: 80
+  
+  # TLS configuration (optional - uncomment and configure for HTTPS)
+  # tls:
+  # - hosts:
+  #   - fastapi.dss.local
+  #   secretName: fastapi-tls-cert

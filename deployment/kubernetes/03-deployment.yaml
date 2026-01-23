@@ -1,0 +1,119 @@
+# Deployment for FastAPI MongoDB REST API
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-mongodb-api
+  namespace: dss  # Change if using a different namespace
+  labels:
+    app: fastapi-mongodb-api
+    version: v1.0.0
+spec:
+  # High availability: 2 replicas
+  replicas: 2
+  
+  # Rolling update strategy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  
+  selector:
+    matchLabels:
+      app: fastapi-mongodb-api
+  
+  template:
+    metadata:
+      labels:
+        app: fastapi-mongodb-api
+        version: v1.0.0
+    spec:
+      containers:
+      - name: fastapi
+        # ⚠️ CHANGE THIS: Update with your Docker registry and image tag
+        image: your-registry/mongo-fastapi:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        
+        # Environment variables from ConfigMap
+        env:
+        - name: MONGO_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb-config
+              key: host
+        - name: MONGO_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb-config
+              key: port
+        - name: MONGO_DB
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb-config
+              key: database
+        
+        # Optional: MongoDB credentials from Secret
+        # Remove these if your MongoDB doesn't require authentication
+        - name: MONGO_USER
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: username
+              optional: true
+        - name: MONGO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: password
+              optional: true
+        
+        # Liveness probe: Restart pod if unhealthy
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Readiness probe: Don't send traffic if not ready
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 2
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Security context (optional but recommended)
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+      
+      # Restart policy
+      restartPolicy: Always

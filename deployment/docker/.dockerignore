@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Development
+.env
+.env.local
+*.log
+.vscode/
+.idea/
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+docs/
+
+# Deployment configs (not needed in the image)
+deployment/
+kubernetes/
+
+# Scripts not needed in production
+scripts/seed_mongo.py
+
+# Testing
+tests/
+*.pytest_cache

@@ -1,0 +1,10 @@
+# Optional: Create a dedicated namespace for the FastAPI application
+# Skip this file if you want to deploy in an existing namespace
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dss
+  labels:
+    name: dss
+    environment: production

@@ -1,0 +1,19 @@
+# ConfigMap for MongoDB connection settings
+# ⚠️ IMPORTANT: Update these values with your production MongoDB details
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-config
+  namespace: dss  # Change if using a different namespace
+  labels:
+    app: fastapi-mongodb-api
+data:
+  # ⚠️ CHANGE THIS: Hostname or IP address of your production MongoDB
+  host: "mongodb-prod.dss.local"
+  
+  # ⚠️ CHANGE THIS: MongoDB port (default: 27017)
+  port: "27017"
+  
+  # ⚠️ CHANGE THIS: Database name to use
+  database: "edge_database"
