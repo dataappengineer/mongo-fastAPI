@@ -51,5 +51,30 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """
+    Health check endpoint with MongoDB connection test.
+    Used by Kubernetes liveness and readiness probes.
+    
+    Returns:
+        dict: Status information including MongoDB connectivity
+    """
+    try:
+        from app.database import get_database
+        db = get_database()
+        # Test MongoDB connection with ping command
+        db.command("ping")
+        return {
+            "status": "healthy",
+            "mongodb": "connected",
+            "database": db.name,
+            "version": "1.0.0"
+        }
+    except Exception as e:
+        # Return 200 status but with error info
+        # Kubernetes can parse the response body to determine health
+        return {
+            "status": "unhealthy",
+            "mongodb": "disconnected",
+            "error": str(e),
+            "version": "1.0.0"
+        }

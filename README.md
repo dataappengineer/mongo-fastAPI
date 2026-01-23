@@ -2,6 +2,27 @@
 
 API REST sviluppata con FastAPI e PyMongo per interagire con database MongoDB. Fornisce endpoint per gestire collezioni, metadati, dati e validazione di query SQL per PostgreSQL.
 
+---
+
+## 🚀 **Production Deployment (Kubernetes/Rancher)**
+
+**📦 This repository is production-ready!** Complete Kubernetes deployment configuration and documentation available in [`deployment/`](deployment/).
+
+**Key improvements for production:**
+- ✅ Production-optimized Dockerfile (no `--reload`, multiple workers)
+- ✅ MongoDB health check in `/health` endpoint
+- ✅ Complete Kubernetes manifests (Deployment, Service, Ingress, ConfigMap, Secret)
+- ✅ Comprehensive deployment guide with troubleshooting
+
+**Quick links:**
+- 📖 **[Production Deployment Guide](deployment/README.md)** - Complete step-by-step instructions
+- 🎯 **[Kubernetes Quick Reference](deployment/kubernetes/README.md)** - Commands and troubleshooting
+- 🐳 **[Production Dockerfile](deployment/docker/Dockerfile.prod)** - Optimized for Kubernetes
+
+**⚠️ IMPORTANT:** The MongoDB in `docker-compose.yml` is ONLY for local development/testing. For production deployment, you connect to your existing MongoDB instance.
+
+---
+
 ## 🎯 Caratteristiche Principali
 
 ✅ **Gestione Collezioni MongoDB:**
@@ -23,6 +44,12 @@ API REST sviluppata con FastAPI e PyMongo per interagire con database MongoDB. F
 - Hot-reload per sviluppo rapido
 - Script di seeding per dati di test
 
+✅ **Production Ready:**
+- Dockerfile ottimizzato per produzione (senza `--reload`)
+- Health check con test connessione MongoDB
+- Configurazione completa Kubernetes/Rancher
+- Documentazione deployment e troubleshooting
+
 ## 📁 Struttura Progetto
 
 ```
@@ -36,16 +63,28 @@ mongo-fastAPI/
 │       ├── __init__.py
 │       ├── collections.py   # Endpoint collezioni MongoDB
 │       └── sql.py           # Endpoint validazione SQL
+├── deployment/              # 🆕 Production deployment configs
+│   ├── README.md            #     Guida deployment completa
+│   ├── docker/
+│   │   ├── Dockerfile.prod  #     Dockerfile per produzione
+│   │   └── .dockerignore    #     Docker ignore ottimizzato
+│   └── kubernetes/          #     Manifests Kubernetes
+│       ├── 00-namespace.yaml
+│       ├── 01-configmap.yaml
+│       ├── 02-secret.yaml
+│       ├── 03-deployment.yaml
+│       ├── 04-service.yaml
+│       ├── 05-ingress.yaml
+│       └── README.md
 ├── scripts/
 │   └── seed_mongo.py        # Script popolamento database
-├── docker-compose.yml       # Configurazione Docker Compose
-├── Dockerfile               # Container FastAPI
+├── docker-compose.yml       # Configurazione Docker Compose (dev locale)
+├── Dockerfile               # Container FastAPI (dev locale)
 ├── requirements.txt         # Dipendenze Python
-├── .env                     # Variabili d'ambiente
 └── README.md
 ```
 
-## 🚀 Avvio Rapido con Docker
+## 🚀 Avvio Rapido con Docker (Sviluppo Locale)
 
 ### Prerequisiti
 - Docker e Docker Compose installati sul sistema
