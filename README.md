@@ -233,18 +233,45 @@ curl http://localhost:8000/collections/cittadini/metadata
 
 ### Endpoint 3: Estrazione Dati Collezione
 
-**Descrizione:** Estrae i dati completi da una collezione con possibilità di limitare il numero di righe restituite tramite il parametro `max_righe`.
+**Descrizione:** Estrae i dati completi da una collezione con supporto per **paginazione opzionale** tramite parametri `page` e `page_size`.
 
 **Endpoint:**
 ```
-GET /collections/{nome_collezione}/data?max_righe={n}
+GET /collections/{nome_collezione}/data
 ```
 
 **Parametri:**
 - `nome_collezione` (path): Nome della collezione da cui estrarre i dati
-- `max_righe` (query, opzionale): Numero massimo di documenti da restituire
+- `page` (query, opzionale): Numero della pagina (inizia da 1)
+- `page_size` (query, opzionale): Numero di documenti per pagina (max 1000)
+- `max_righe` (query, opzionale): **[DEPRECATO]** Usa `page_size` invece
 
-**Risposta:**
+**Modalità di utilizzo:**
+
+**1. Senza paginazione** (tutti i documenti):
+```bash
+curl http://localhost:8000/collections/cittadini/data
+```
+
+**2. Con paginazione** (consigliato per grandi dataset):
+```bash
+# Prima pagina, 20 items
+curl http://localhost:8000/collections/cittadini/data?page=1&page_size=20
+
+# Seconda pagina, 20 items
+curl http://localhost:8000/collections/cittadini/data?page=2&page_size=20
+
+# Terza pagina, 50 items
+curl http://localhost:8000/collections/cittadini/data?page=3&page_size=50
+```
+
+**3. Legacy mode** (retrocompatibilità):
+```bash
+# Primi 10 documenti (senza paginazione)
+curl http://localhost:8000/collections/cittadini/data?max_righe=10
+```
+
+**Risposta con paginazione:**
 ```json
 {
   "collection_name": "cittadini",
@@ -260,29 +287,33 @@ GET /collections/{nome_collezione}/data?max_righe={n}
       "cap": "70121"
     }
   ],
-  "total_count": 6,
-  "returned_count": 1,
-  "max_righe": 1
+  "total_count": 100,
+  "returned_count": 20,
+  "max_righe": null,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 5,
+  "has_next": true,
+  "has_previous": false
 }
 ```
 
+**Campi risposta con paginazione:**
+- `page`: Numero pagina corrente (1-based)
+- `page_size`: Documenti per pagina
+- `total_pages`: Numero totale di pagine
+- `has_next`: `true` se esiste una pagina successiva
+- `has_previous`: `true` se esiste una pagina precedente
+- `total_count`: Totale documenti nella collezione
+- `returned_count`: Documenti nella pagina corrente
+
 **Comportamento:**
-- Senza `max_righe`: restituisce tutti i documenti
-- Con `max_righe`: limita il numero di documenti restituiti
+- **Senza parametri**: restituisce tutti i documenti
+- **Con `page` e `page_size`**: paginazione attiva
+- **Con solo `max_righe`**: legacy mode (primi N documenti)
+- **Limite massimo**: `page_size` non può superare 1000
 - Converte ObjectId in stringhe per compatibilità JSON
 - Mantiene l'ordine di inserimento dei documenti
-
-**Esempi di utilizzo:**
-```bash
-# Estrarre tutti i dati
-curl http://localhost:8000/collections/cittadini/data
-
-# Limitare a 10 righe
-curl http://localhost:8000/collections/cittadini/data?max_righe=10
-
-# Limitare a 50 righe
-curl http://localhost:8000/collections/servizi_pubblici/data?max_righe=50
-```
 
 ---
 

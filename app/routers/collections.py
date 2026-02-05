@@ -189,19 +189,36 @@ async def get_collection_metadata(collection_name: str):
 @router.get("/{collection_name}/data", response_model=CollectionDataResponse)
 async def get_collection_data(
     collection_name: str,
-    max_righe: Optional[int] = Query(None, description="Numero massimo di righe da restituire", ge=1)
+    max_righe: Optional[int] = Query(None, description="Numero massimo di righe da restituire (deprecato, usa page_size)", ge=1),
+    page: Optional[int] = Query(None, description="Numero della pagina (1-based)", ge=1),
+    page_size: Optional[int] = Query(None, description="Numero di documenti per pagina", ge=1, le=1000)
 ):
     """
-    Endpoint 3: Get data from a specific collection.
+    Endpoint 3: Get data from a specific collection with optional pagination.
     
-    Returns all documents or limited by max_righe parameter.
+    Returns all documents or limited by pagination parameters.
+    
+    **Pagination (NEW):**
+    - `page`: Page number (starting from 1)
+    - `page_size`: Number of documents per page (max 1000)
+    
+    **Legacy:**
+    - `max_righe`: Maximum rows (deprecated, use page_size instead)
+    
+    **Examples:**
+    - `/collections/users/data` - All documents (no pagination)
+    - `/collections/users/data?page=1&page_size=20` - First page, 20 items
+    - `/collections/users/data?page=2&page_size=20` - Second page, 20 items
+    - `/collections/users/data?max_righe=100` - First 100 documents (legacy)
     
     Args:
         collection_name: Name of the collection
-        max_righe: Maximum number of rows to return (optional, in Italian as requested)
+        max_righe: Maximum number of rows to return (legacy, optional)
+        page: Page number (1-based, optional)
+        page_size: Number of documents per page (optional)
         
     Returns:
-        CollectionDataResponse: Collection data with documents
+        CollectionDataResponse: Collection data with documents and pagination metadata
     """
     try:
         db: Database = get_database()
@@ -215,24 +232,85 @@ async def get_collection_data(
         # Get total count
         total_count = collection.count_documents({})
         
-        # Fetch data with optional limit
-        if max_righe is not None:
+        # Determine pagination mode
+        use_pagination = page is not None and page_size is not None
+        use_legacy = max_righe is not None and not use_pagination
+        
+        if use_pagination:
+            # Modern pagination mode
+            skip = (page - 1) * page_size
+            limit = page_size
+            
+            # Calculate pagination metadata
+            total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
+            has_next = page < total_pages
+            has_previous = page > 1
+            
+            # Fetch paginated data
+            documents = list(collection.find().skip(skip).limit(limit))
+            
+            # Convert ObjectId to string for JSON serialization
+            for doc in documents:
+                if "_id" in doc:
+                    doc["_id"] = str(doc["_id"])
+            
+            return CollectionDataResponse(
+                collection_name=collection_name,
+                data=documents,
+                total_count=total_count,
+                returned_count=len(documents),
+                max_righe=None,
+                page=page,
+                page_size=page_size,
+                total_pages=total_pages,
+                has_next=has_next,
+                has_previous=has_previous
+            )
+            
+        elif use_legacy:
+            # Legacy mode with max_righe
             documents = list(collection.find().limit(max_righe))
+            
+            # Convert ObjectId to string for JSON serialization
+            for doc in documents:
+                if "_id" in doc:
+                    doc["_id"] = str(doc["_id"])
+            
+            return CollectionDataResponse(
+                collection_name=collection_name,
+                data=documents,
+                total_count=total_count,
+                returned_count=len(documents),
+                max_righe=max_righe,
+                page=None,
+                page_size=None,
+                total_pages=None,
+                has_next=None,
+                has_previous=None
+            )
+            
         else:
+            # No pagination - return all documents
             documents = list(collection.find())
-        
-        # Convert ObjectId to string for JSON serialization
-        for doc in documents:
-            if "_id" in doc:
-                doc["_id"] = str(doc["_id"])
-        
-        return CollectionDataResponse(
-            collection_name=collection_name,
-            data=documents,
-            total_count=total_count,
-            returned_count=len(documents),
-            max_righe=max_righe
-        )
+            
+            # Convert ObjectId to string for JSON serialization
+            for doc in documents:
+                if "_id" in doc:
+                    doc["_id"] = str(doc["_id"])
+            
+            return CollectionDataResponse(
+                collection_name=collection_name,
+                data=documents,
+                total_count=total_count,
+                returned_count=len(documents),
+                max_righe=None,
+                page=None,
+                page_size=None,
+                total_pages=None,
+                has_next=None,
+                has_previous=None
+            )
+            
     except HTTPException:
         raise
     except PyMongoError as e:
