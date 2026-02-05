@@ -40,7 +40,13 @@ class CollectionDataResponse(BaseModel):
     data: List[Dict[str, Any]] = Field(..., description="List of documents")
     total_count: int = Field(..., description="Total documents in collection")
     returned_count: int = Field(..., description="Number of documents returned")
-    max_righe: Optional[int] = Field(None, description="Maximum rows requested")
+    max_righe: Optional[int] = Field(None, description="Maximum rows requested (deprecated, use page_size)")
+    # Pagination metadata
+    page: Optional[int] = Field(None, description="Current page number (1-based)")
+    page_size: Optional[int] = Field(None, description="Number of documents per page")
+    total_pages: Optional[int] = Field(None, description="Total number of pages")
+    has_next: Optional[bool] = Field(None, description="Whether there is a next page")
+    has_previous: Optional[bool] = Field(None, description="Whether there is a previous page")
 
 
 class SQLValidationRequest(BaseModel):
