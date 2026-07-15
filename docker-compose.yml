@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # MongoDB service using specified image
   mongodb:
-    image: mongo:7.0.14
+    image: mongo:8.0.0
     container_name: mongodb
     ports:
       - "27017:27017"

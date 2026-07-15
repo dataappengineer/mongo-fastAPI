@@ -36,7 +36,7 @@ API REST sviluppata con FastAPI e PyMongo per interagire con database MongoDB. F
 - Formattazione automatica delle query
 
 ✅ **Plug & Play:**
-- Funziona con MongoDB in Docker (`mongo:7.0.14`) o deployment esterni
+- Funziona con MongoDB in Docker (`mongo:8.0.0`) o deployment esterni
 - Configurazione tramite variabili d'ambiente
 
 ✅ **Docker Ready:**
@@ -103,7 +103,7 @@ docker-compose up -d
 ```
 
 Questo avvierà:
-- **MongoDB** sulla porta 27017 (immagine: `mongo:7.0.14`)
+- **MongoDB** sulla porta 27017 (immagine: `mongo:8.0.0`)
 - **API FastAPI** sulla porta 8000
 
 ### 3. Popolare il database con dati di test (opzionale)
@@ -512,7 +512,7 @@ Collezione timeseries per tracciare gli accessi ai servizi pubblici
   - Isolamento ambiente di esecuzione
   - Orchestrazione multi-container (API + MongoDB)
   - Portabilità tra ambienti diversi
-  - MongoDB 7.0.14 come database engine
+  - MongoDB 8.0.0 come database engine
 
 ## 🌐 Variabili d'Ambiente
 

@@ -261,7 +261,7 @@ Before deploying, verify that MongoDB is accessible from the Kubernetes cluster:
 ```bash
 # From a test pod in the same namespace
 kubectl run -it --rm --restart=Never mongo-test \
-  --image=mongo:7.0.14 \
+  --image=mongo:8.0.0 \
   --namespace=dss \
   -- mongosh mongodb://mongodb-prod.dss.local:27017/edge_database --eval "db.runCommand('ping')"
 ```
