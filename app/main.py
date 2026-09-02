@@ -2,6 +2,7 @@
 FastAPI main application.
 """
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.database import close_connection
@@ -28,6 +29,22 @@ app = FastAPI(
     description="REST API for MongoDB collections with metadata and data retrieval",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# CORS middleware configuration for frontend and gateway integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://dss.regione.puglia.it",
+        "https://dss-coll.regione.puglia.it",
+        "http://localhost",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "*"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers

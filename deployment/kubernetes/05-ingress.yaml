@@ -8,25 +8,28 @@ metadata:
   labels:
     app: fastapi-mongodb-api
   annotations:
-    # Nginx Ingress Controller annotations
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    # SSL & Security annotations
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     
-    # CORS configuration (optional - enable if needed for frontend)
+    # CORS configuration (handled also by FastAPI middleware)
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://dss.regione.puglia.it, https://dss-coll.regione.puglia.it, *"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
     
-    # Rate limiting (optional - uncomment if needed)
-    # nginx.ingress.kubernetes.io/limit-rps: "100"
+    # NOTE ON REWRITE-TARGET:
+    # If exposing on dedicated host/subdomain (e.g. fastapi.dss.local or mongo-api.dss.regione.puglia.it):
+    # Do NOT set 'rewrite-target: /' as it rewrites all sub-paths to root '/'.
+    # If exposing under a subpath (e.g. /mongo-api/(.*)), uncomment these two lines:
+    # nginx.ingress.kubernetes.io/use-regex: "true"
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2
     
 spec:
   # IngressClassName (use if your cluster has multiple ingress controllers)
   # ingressClassName: nginx
   
   rules:
-  # ⚠️ CHANGE THIS: Update with your actual hostname
+  # ⚠️ Update with your actual hostname (e.g., dss.regione.puglia.it or dedicated subdomain)
   - host: fastapi.dss.local
     http:
       paths:

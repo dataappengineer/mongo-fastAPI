@@ -17,6 +17,7 @@ from app.models import (
 router = APIRouter(prefix="/collections", tags=["collections"])
 
 
+@router.get("", response_model=CollectionListResponse, include_in_schema=False)
 @router.get("/", response_model=CollectionListResponse)
 async def list_collections():
     """
