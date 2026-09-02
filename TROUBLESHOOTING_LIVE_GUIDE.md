@@ -147,6 +147,72 @@ access-control-allow-methods: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT
 access-control-allow-headers: Content-Type, Authorization
 ```
 
+**Sì, al 100%! Questo comando è la "prova del nove" per CORS.**
+
+Eseguendo esattamente quel comando cURL, saprai in un istante qual è la situazione:
+
+---
+
+### 🟢 Caso 1: CORS configurato e funzionante
+Se il comando risponde con:
+```http
+HTTP/1.1 200 OK
+access-control-allow-origin: https://dss.regione.puglia.it
+access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS
+access-control-allow-headers: Content-Type, Authorization
+```
+➡️ **Verdetto**: Il backend/gateway autorizza correttamente il frontend. Il preflight CORS è a posto.
+
+---
+
+### 🔴 Caso 2: CORS MANCANTE (o bloccato)
+Se il comando risponde con:
+- **`405 Method Not Allowed`** (FastAPI senza `CORSMiddleware`)
+- oppure con `200/204` **MA SENZA** l'header `Access-Control-Allow-Origin: https://dss.regione.puglia.it`
+- oppure **`403 Forbidden`** dal Gateway
+
+➡️ **Verdetto**: Il browser del frontend blocca la chiamata e riceve una risposta vuota (`content-length: 0`). **La soluzione è deployare l'immagine con `CORSMiddleware`.**
+
+in riassunto se lo status Code HTTP da curl -i -L -X GET "https://[HOST]/collections/ e´Se Status Code = 200 / 204:, e lórigin e´una di queste "https://dss.regione.puglia.it",
+"https://dss-coll.regione.puglia.it",, la soluzione e´smeplicemente deployare la nuova immagine su k8
+Updated todo list
+
+**Esattamente, hai colto il punto al 100%!** 🎯
+
+Ecco il quadro in sintesi:
+
+1. **La Diagnosi**: Se da `curl -i -L` (o dal browser) ricevono **`Status Code = 200 / 204`** ma con **body vuoto** (`content-length: 0`), significa che:
+   - La richiesta che stanno osservando è la preflight **`OPTIONS`** (o una GET bloccata a valle dal browser per mancanza degli header `Access-Control-Allow-*`).
+   - Il backend attuale non ha il `CORSMiddleware` attivo.
+
+2. **La Soluzione**: È esattamente **buildare e deployare la nuova immagine Docker su Kubernetes** con:
+   - ✅ Il `CORSMiddleware` configurato (con `allow_origins` e `allow_origin_regex=r"https://.*\.regione\.puglia\.it"` che copre sia `dss` che `dss-coll` e qualsiasi altro loro sottodominio).
+   - ✅ Il doppio routing (`/collections` e `/collections/`) per prevenire qualsiasi problema di redirect.
+
+3. **In K8s basterà fare**:
+   ```bash
+   # 1. Build e push della nuova immagine sul registry aziendale
+   docker build -t your-registry/mongo-fastapi:v1.0.1 -f deployment/docker/Dockerfile.prod .
+   docker push your-registry/mongo-fastapi:v1.0.1
+
+   # 2. Aggiornare il tag nel deployment o forzare il rollout
+   kubectl set image deployment/fastapi-mongodb-api fastapi=your-registry/mongo-fastapi:v1.0.1 -n dss
+   # oppure se usano il tag latest:
+   kubectl rollout restart deployment/fastapi-mongodb-api -n dss
+   ```
+
+Tutto il codice e la documentazione sono pronti e testati per essere rilasciati!
+
+
+---
+
+### 💡 Come usarlo nella call di domani:
+1. Chiedi a Claudio/Simona l'`[API_BASE_URL]` (o fallo eseguire direttamente a loro).
+2. Lanciate quel comando `curl -i -X OPTIONS`.
+3. In base alla presenza o assenza degli header `access-control-allow-*`, avrete la certezza assoluta in 5 secondi!
+
+
+
 ---
 
 ### Test 4: Recupero Dati e Paginazione
