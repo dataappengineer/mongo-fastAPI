@@ -55,6 +55,14 @@ Analizziamo voce per voce la risposta inviata dal cliente:
 ### Causa C: Regola `rewrite-target` errata nell'Ingress Kubernetes
 - Nel manifest Ingress K8s, l'annotazione `nginx.ingress.kubernetes.io/rewrite-target: /` senza cattura regex riscrittiva (`/(.*)` -> `/$1`) può riscrivere qualsiasi URI (es. `/collections/cittadini/data`) a `/`, servendo l'endpoint root anziché l'API richiesta.
 
+### 💡 Regola pratica per la certezza assoluta
+
+Per sapere con esattezza quale sia la causa, basta chiedere **un solo dato** ai DevOps / al cliente: **lo Status Code HTTP della risposta**.
+
+- **Se Status Code = 307:** ➡️ La causa è lo **slash mancante** (FastAPI esegue il redirect con body vuoto `content-length: 0`).
+- **Se Status Code = 200 / 204:** ➡️ La causa è legata a **CORS / chiamata preflight `OPTIONS`** (il browser riceve risposta ok dal preflight ma non esegue la GET reale, oppure il body è vuoto).
+- **Se Status Code = 401 / 403 / 502 / 503:** ➡️ La causa è a monte, sul **Gateway / Ingress / WAF di Regione Puglia** (mancata autenticazione, route inesistente o backend irraggiungibile).
+
 ---
 
 ## 4. Copione della Chiamata Live (Step-by-Step)
