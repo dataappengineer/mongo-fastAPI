@@ -3,7 +3,8 @@
 
 **Data Sessione**: 2 Settembre 2026  
 **Partecipanti**: Giovanni Brucoli, Claudio, Simona  
-**Target Host**: `https://dss.regione.puglia.it` (o ambiente coll: `https://dss-coll.regione.puglia.it`)  
+**Frontend Host**: `https://dss.regione.puglia.it` (o collaudo: `https://dss-coll.regione.puglia.it`)  
+**Backend Host (FastAPI)**: es. `https://fastapi.dss.regione.puglia.it` o `https://dss.regione.puglia.it/api/mongo/...`  
 **Stato**: 🛠️ Guida Operativa & Runbook di Diagnosi
 
 ---
@@ -97,10 +98,14 @@ Eseguire insieme a loro i comandi cURL diagnostici (mostrati nella Sezione 5):
 
 ## 5. Snippet di Test e Diagnostica (Comandi cURL)
 
-### Test 1: Health Check (Verifica Base)
+> 💡 **Nota sulle URL di Test**:  
+> Negli snippet sottostanti, sostituisci `[API_BASE_URL]` con l'effettivo endpoint del servizio backend concordato con i DevOps (es. `https://fastapi.dss.regione.puglia.it` oppure `https://dss.regione.puglia.it/api/mongo`).  
+> L'origine frontend nelle richieste CORS (`Origin`) corrisponde al portale DSS: `https://dss.regione.puglia.it` o `https://dss-coll.regione.puglia.it`.
+
+### Test 1: Health Check (Verifica Base Backend)
 ```bash
-# Sostituire con l'host corretto (es. https://dss.regione.puglia.it)
-curl -i -X GET "https://dss.regione.puglia.it/health"
+# Sostituire con l'effettivo host del backend FastAPI
+curl -i -X GET "[API_BASE_URL]/health"
 ```
 **Output atteso**:
 ```http
@@ -115,20 +120,20 @@ content-type: application/json
 ### Test 2: Verifica Trailing Slash (Senza Redirect)
 ```bash
 # Chiamata CON slash finale:
-curl -i -X GET "https://dss.regione.puglia.it/collections/"
+curl -i -X GET "[API_BASE_URL]/collections/"
 
 # Chiamata SENZA slash finale (per verificare se restituisce 307):
-curl -i -X GET "https://dss.regione.puglia.it/collections"
+curl -i -X GET "[API_BASE_URL]/collections"
 
 # Chiamata con Follow Redirect (-L):
-curl -i -L -X GET "https://dss.regione.puglia.it/collections"
+curl -i -L -X GET "[API_BASE_URL]/collections"
 ```
 
 ---
 
-### Test 3: Verifica Preflight CORS (Simulazione Browser)
+### Test 3: Verifica Preflight CORS (Simulazione Chiamata da Frontend DSS)
 ```bash
-curl -i -X OPTIONS "https://dss.regione.puglia.it/collections/" \
+curl -i -X OPTIONS "[API_BASE_URL]/collections/" \
   -H "Origin: https://dss.regione.puglia.it" \
   -H "Access-Control-Request-Method: GET" \
   -H "Access-Control-Request-Headers: Content-Type, Authorization"
@@ -137,7 +142,7 @@ curl -i -X OPTIONS "https://dss.regione.puglia.it/collections/" \
 ```http
 HTTP/1.1 200 OK
 access-control-allow-origin: https://dss.regione.puglia.it
-access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS
+access-control-allow-methods: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT
 access-control-allow-headers: Content-Type, Authorization
 ```
 
@@ -145,14 +150,14 @@ access-control-allow-headers: Content-Type, Authorization
 
 ### Test 4: Recupero Dati e Paginazione
 ```bash
-curl -i -L -X GET "https://dss.regione.puglia.it/collections/cittadini/data?page=1&page_size=2"
+curl -i -L -X GET "[API_BASE_URL]/collections/cittadini/data?page=1&page_size=2"
 ```
 
 ---
 
 ### Test 5: Metadata Schema e Indici
 ```bash
-curl -i -L -X GET "https://dss.regione.puglia.it/collections/cittadini/metadata"
+curl -i -L -X GET "[API_BASE_URL]/collections/cittadini/metadata"
 ```
 
 ---
