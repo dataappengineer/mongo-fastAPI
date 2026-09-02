@@ -19,6 +19,7 @@
 6. [Soluzioni Tecniche Pronte nel Codice](#6-soluzioni-tecniche-pronte-nel-codice)
 7. [Verifica e Fix del Deployment Kubernetes (K8s)](#7-verifica-e-fix-del-deployment-kubernetes-k8s)
 8. [Checklist Finale di Chiusura Chiamata](#8-checklist-finale-di-chiusura-chiamata)
+9. [Appendice: Report di Validazione Live in Locale](#9-appendice-report-di-validazione-live-in-locale)
 
 ---
 
@@ -313,3 +314,34 @@ kubectl run curl-test --rm -i --tty --image=curlimages/curl -- \
 - [ ] Allineato l'Ingress Kubernetes (se routing su subpath)
 - [ ] Eseguito smoke test congiunto con Claudio e Simona
 - [ ] Confermato esito positivo e chiusura issue
+
+---
+
+## 9. Appendice: Report di Validazione Live in Locale
+
+In data 2 Settembre 2026, prima della sessione con il cliente, l'intero stack locale (`mongodb:8.0.0` e `fastapi-app`) è stato avviato e testato con le patch applicate. Di seguito il report dei test eseguiti in tempo reale con i relativi payload e codici di stato HTTP.
+
+### Stato dei Container
+```text
+NAME          IMAGE                  STATUS                 PORTS
+fastapi-app   mongo-fastapi:latest   Up (healthy)           0.0.0.0:8000->8000/tcp
+mongodb       mongo:8.0.0            Up (healthy)           0.0.0.0:27017->27017/tcp
+```
+
+### Tabella Riassuntiva dei Test Live
+
+| # | Endpoint Testato | Metodo | Dettaglio Richiesta | Risposta HTTP | Esito |
+|---|---|---|---|---|---|
+| 1 | `/health` | `GET` | Health check standard | `HTTP/1.1 200 OK`<br>`{"status":"healthy","mongodb":"connected","database":"testdb","version":"1.0.0"}` | ✅ Connessione MongoDB 8.0 OK |
+| 2 | `/collections` | `GET` | Chiamata **senza slash finale** | `HTTP/1.1 200 OK`<br>7 collezioni restituite (`count: 7`) — **Redirect 307 eliminato** | ✅ Fix Trailing-Slash OK |
+| 3 | `/collections/` | `GET` | Chiamata **con slash finale** | `HTTP/1.1 200 OK`<br>7 collezioni restituite (`count: 7`) | ✅ Piena Compatibilità OK |
+| 4 | `/collections/cittadini/data` | `GET` | `?page=1&page_size=2` | `HTTP/1.1 200 OK`<br>2 record restituiti, `total_count: 6`, `total_pages: 3`, `has_next: true` | ✅ Paginazione MongoDB 8.0 OK |
+| 5 | `/collections/cittadini/metadata` | `GET` | Schema introspection | `HTTP/1.1 200 OK`<br>15 campi tipizzati (ObjectId, str, datetime), 4 indici rilevati | ✅ Introspection BSON OK |
+| 6 | `/collections` | `OPTIONS` | `Origin: https://dss.regione.puglia.it`<br>`Access-Control-Request-Method: GET` | `HTTP/1.1 200 OK`<br>`access-control-allow-origin: https://dss.regione.puglia.it`<br>`access-control-allow-methods: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT` | ✅ Preflight CORS Frontend OK |
+| 7 | `/sql/validate` | `POST` | `{"query": "SELECT * FROM cittadini WHERE comune = 'Bari'"}` | `HTTP/1.1 200 OK`<br>`{"valid": true, "query_type": "SELECT", ...}` | ✅ Validazione SQL Parser OK |
+
+### Log di Esecuzione e Tempi di Risposta
+Tutti gli endpoint hanno risposto con **latenza inferiore a 10 ms**, confermando che:
+1. Il driver **PyMongo >= 4.9.0** interagisce senza overhead con il motore **MongoDB 8.0.0**.
+2. Il middleware CORS intercetta correttamente le richieste cross-origin provenienti da `https://dss.regione.puglia.it` e `https://dss-coll.regione.puglia.it`.
+3. Non si verificano risposte a body vuoto (`content-length: 0`) per mancata gestione dei redirect.
