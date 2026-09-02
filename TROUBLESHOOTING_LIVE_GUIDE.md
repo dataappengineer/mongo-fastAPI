@@ -139,79 +139,27 @@ curl -i -X OPTIONS "[API_BASE_URL]/collections/" \
   -H "Access-Control-Request-Method: GET" \
   -H "Access-Control-Request-Headers: Content-Type, Authorization"
 ```
-**Output atteso con CORS attivo**:
-```http
-HTTP/1.1 200 OK
-access-control-allow-origin: https://dss.regione.puglia.it
-access-control-allow-methods: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT
-access-control-allow-headers: Content-Type, Authorization
+
+#### 🎯 Interpretazione Risultati del Test CORS (Prova del Nove):
+- **🟢 Caso 1: CORS configurato e funzionante**
+  - **Risposta**: `HTTP/1.1 200 OK` con header `Access-Control-Allow-Origin: https://dss.regione.puglia.it`.
+  - **Verdetto**: Il backend/gateway autorizza correttamente il frontend. Il preflight CORS è a posto.
+- **🔴 Caso 2: CORS mancante o bloccato (Status 200/204 senza header, o 405)**
+  - **Risposta**: `405 Method Not Allowed` oppure `200/204` **SENZA** `Access-Control-Allow-Origin`.
+  - **Verdetto**: Il browser del frontend blocca la chiamata e riceve una risposta vuota (`content-length: 0`).
+  - **Soluzione immediata**: Deployare l'immagine con `CORSMiddleware` abilitato.
+
+#### 🚀 Procedura di Rilascio Immagine su K8s (se Status Code = 200/204 vuoto per CORS):
+```bash
+# 1. Build e push della nuova immagine sul registry aziendale
+docker build -t your-registry/mongo-fastapi:v1.0.1 -f deployment/docker/Dockerfile.prod .
+docker push your-registry/mongo-fastapi:v1.0.1
+
+# 2. Aggiornare il tag nel deployment o forzare il rollout
+kubectl set image deployment/fastapi-mongodb-api fastapi=your-registry/mongo-fastapi:v1.0.1 -n dss
+# oppure se usano il tag latest:
+kubectl rollout restart deployment/fastapi-mongodb-api -n dss
 ```
-
-**Sì, al 100%! Questo comando è la "prova del nove" per CORS.**
-
-Eseguendo esattamente quel comando cURL, saprai in un istante qual è la situazione:
-
----
-
-### 🟢 Caso 1: CORS configurato e funzionante
-Se il comando risponde con:
-```http
-HTTP/1.1 200 OK
-access-control-allow-origin: https://dss.regione.puglia.it
-access-control-allow-methods: GET, POST, PUT, DELETE, OPTIONS
-access-control-allow-headers: Content-Type, Authorization
-```
-➡️ **Verdetto**: Il backend/gateway autorizza correttamente il frontend. Il preflight CORS è a posto.
-
----
-
-### 🔴 Caso 2: CORS MANCANTE (o bloccato)
-Se il comando risponde con:
-- **`405 Method Not Allowed`** (FastAPI senza `CORSMiddleware`)
-- oppure con `200/204` **MA SENZA** l'header `Access-Control-Allow-Origin: https://dss.regione.puglia.it`
-- oppure **`403 Forbidden`** dal Gateway
-
-➡️ **Verdetto**: Il browser del frontend blocca la chiamata e riceve una risposta vuota (`content-length: 0`). **La soluzione è deployare l'immagine con `CORSMiddleware`.**
-
-in riassunto se lo status Code HTTP da curl -i -L -X GET "https://[HOST]/collections/ e´Se Status Code = 200 / 204:, e lórigin e´una di queste "https://dss.regione.puglia.it",
-"https://dss-coll.regione.puglia.it",, la soluzione e´smeplicemente deployare la nuova immagine su k8
-Updated todo list
-
-**Esattamente, hai colto il punto al 100%!** 🎯
-
-Ecco il quadro in sintesi:
-
-1. **La Diagnosi**: Se da `curl -i -L` (o dal browser) ricevono **`Status Code = 200 / 204`** ma con **body vuoto** (`content-length: 0`), significa che:
-   - La richiesta che stanno osservando è la preflight **`OPTIONS`** (o una GET bloccata a valle dal browser per mancanza degli header `Access-Control-Allow-*`).
-   - Il backend attuale non ha il `CORSMiddleware` attivo.
-
-2. **La Soluzione**: È esattamente **buildare e deployare la nuova immagine Docker su Kubernetes** con:
-   - ✅ Il `CORSMiddleware` configurato (con `allow_origins` e `allow_origin_regex=r"https://.*\.regione\.puglia\.it"` che copre sia `dss` che `dss-coll` e qualsiasi altro loro sottodominio).
-   - ✅ Il doppio routing (`/collections` e `/collections/`) per prevenire qualsiasi problema di redirect.
-
-3. **In K8s basterà fare**:
-   ```bash
-   # 1. Build e push della nuova immagine sul registry aziendale
-   docker build -t your-registry/mongo-fastapi:v1.0.1 -f deployment/docker/Dockerfile.prod .
-   docker push your-registry/mongo-fastapi:v1.0.1
-
-   # 2. Aggiornare il tag nel deployment o forzare il rollout
-   kubectl set image deployment/fastapi-mongodb-api fastapi=your-registry/mongo-fastapi:v1.0.1 -n dss
-   # oppure se usano il tag latest:
-   kubectl rollout restart deployment/fastapi-mongodb-api -n dss
-   ```
-
-Tutto il codice e la documentazione sono pronti e testati per essere rilasciati!
-
-
----
-
-### 💡 Come usarlo nella call di domani:
-1. Chiedi a Claudio/Simona l'`[API_BASE_URL]` (o fallo eseguire direttamente a loro).
-2. Lanciate quel comando `curl -i -X OPTIONS`.
-3. In base alla presenza o assenza degli header `access-control-allow-*`, avrete la certezza assoluta in 5 secondi!
-
-
 
 ---
 
@@ -283,8 +231,9 @@ app.add_middleware(
         "http://localhost",
         "http://localhost:3000",
         "http://localhost:8000",
-        "*"
+        "http://127.0.0.1",
     ],
+    allow_origin_regex=r"https://.*\.regione\.puglia\.it",  # Consente tutti i sottodomini Regione Puglia
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -299,11 +248,27 @@ app.include_router(sql.router)
 
 ## 7. Verifica e Fix del Deployment Kubernetes (K8s)
 
-### Controllo `deployment/kubernetes/05-ingress.yaml`
+### 📌 Diagnosi Errori a Monte: 401, 403, 502, 503
 
-Attenzione alla configurazione del rewrite target dell'Ingress NGINX:
+Se durante i test si ricevono questi codici, il problema non è nel codice Python ma nell'instradamento o nella sicurezza dell'infrastruttura di Regione Puglia:
 
-#### Configurazione Corretta (Senza subpath rewrite distruttivo):
+| Status Code | Causa Tecnica | Cosa Verificare / Azione da Fare |
+|---|---|---|
+| **`401 Unauthorized` / `403 Forbidden`** | Il **WAF / Gateway di Regione Puglia** o l'Ingress richiede un token OAuth2/JWT aziendale, cookie di sessione o whitelist IP e blocca prima di arrivare al container. | Verificare con i DevOps se l'API richiede autenticazione a monte o se il WAF blocca la richiesta. (*Nota: il 403 è ambiguo perché può anche derivare da un blocco severo CORS lato browser*). |
+| **`502 Bad Gateway` / `503 Service Unavailable`** | L'Ingress NGINX non riesce a raggiungere il container FastAPI (pod crashato, service K8s non collegato o readiness probe fallita). | Verificare lo stato dei Pod e i probe `/health` con i comandi kubectl sotto. |
+| **`404 Not Found`** | Regola di routing o `rewrite-target` errata nell'Ingress K8s (il path viene riscritto male prima di raggiungere FastAPI). | Correggere le regole di routing e rewrite nell'Ingress. |
+
+---
+
+### ⚙️ Configurazione Ingress NGINX (`deployment/kubernetes/05-ingress.yaml`)
+
+Ci sono **2 scenari possibili** per esporre FastAPI:
+
+#### Scenario A: Dominio/Sottodominio Dedicato (es. `https://fastapi.dss.regione.puglia.it`)
+Se il servizio risponde direttamente sulla radice del suo host:
+- **Regola**: `path: /`
+- **IMPORTANTE**: **NON** impostare `nginx.ingress.kubernetes.io/rewrite-target: /` (sovrascriverebbe tutti i sub-path come `/collections/cittadini/data` trasformandoli in `/`).
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -313,15 +278,14 @@ metadata:
   labels:
     app: fastapi-mongodb-api
   annotations:
-    # Se il servizio è esposto sulla root dell'host (fastapi.dss.regione.puglia.it):
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "https://dss.regione.puglia.it, https://dss-coll.regione.puglia.it"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://dss.regione.puglia.it, https://dss-coll.regione.puglia.it, *"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
 spec:
   rules:
-  - host: dss.regione.puglia.it
+  - host: fastapi.dss.regione.puglia.it
     http:
       paths:
       - path: /
@@ -333,8 +297,18 @@ spec:
               number: 80
 ```
 
-#### Se invece è esposto su un sotto-percorso (es. `/api/mongo/(.*)`):
+#### Scenario B: Sotto-Percorso Condiviso (es. `https://dss.regione.puglia.it/api/mongo/...`)
+Se l'API condivide il dominio del portale DSS e usa un prefisso:
+- **Regola**: usare regex per rimuovere il prefisso prima di inoltrare la richiesta a FastAPI:
+
 ```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fastapi-ingress
+  namespace: dss
+  labels:
+    app: fastapi-mongodb-api
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
@@ -354,16 +328,24 @@ spec:
 
 ---
 
-### Diagnostica Live sui Pod K8s (se hanno accesso al cluster)
+### 💻 Diagnostica Live sui Pod K8s durante la Call
+
+Fai eseguire questi 3 comandi ai DevOps durante la sessione:
 
 ```bash
-# 1. Verificare lo stato dei pod
+# 1. Verificare se i pod sono Running e pronti
 kubectl get pods -n dss -l app=fastapi-mongodb-api
 
-# 2. Leggere i log in tempo reale per vedere le chiamate HTTP in arrivo
+# 2. Leggere i log in tempo reale per vedere se la richiesta arriva al container
 kubectl logs -f -n dss -l app=fastapi-mongodb-api --tail=100
+# -> Se nei log non compare nulla: la chiamata è bloccata a monte (Gateway/Ingress 401/403).
+# -> Se nei log compare la riga: vedi lo status esatto restituito da FastAPI.
 
-# 3. Testare l'endpoint direttamente all'interno del cluster
+# 3. Verificare che l'Ingress punti correttamente agli Endpoint del Service
+kubectl describe ingress fastapi-ingress -n dss
+# -> Controllare che la voce 'Backends' mostri gli IP dei Pod e non '<none>' (causa di 502/503).
+
+# 4. Test diretto interno al cluster (bypassa Ingress e Gateway)
 kubectl run curl-test --rm -i --tty --image=curlimages/curl -- \
   curl -i http://fastapi-service.dss.svc.cluster.local/health
 ```
