@@ -31,7 +31,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware configuration for frontend and gateway integration
+# CORS middleware configuration for frontend origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -40,8 +40,11 @@ app.add_middleware(
         "http://localhost",
         "http://localhost:3000",
         "http://localhost:8000",
-        "*"
+        "http://127.0.0.1",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
     ],
+    allow_origin_regex=r"https://.*\.regione\.puglia\.it",  # Consente tutti i sottodomini Regione Puglia
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
