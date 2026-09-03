@@ -1,155 +1,176 @@
 # Guida al Troubleshooting Live: FastAPI & MongoDB 8.0
 ## Sessione Tecnica con il Cliente (Regione Puglia - DSS)
 
-**Data Sessione**: 2 Settembre 2026  
-**Partecipanti**: Giovanni Brucoli, Claudio, Simona  
+**Data Sessione**: 3 Settembre 2026  
+**Partecipanti**: Giovanni Brucoli, Claudio, Simona, Valentino Calcagno (DevOps)  
 **Frontend Host**: `https://dss.regione.puglia.it` (o collaudo: `https://dss-coll.regione.puglia.it`)  
-**Backend Host (FastAPI)**: es. `https://fastapi.dss.regione.puglia.it` o `https://dss.regione.puglia.it/api/mongo/...`  
-**Stato**: 🛠️ Guida Operativa & Runbook di Diagnosi
+**Backend Host (FastAPI via Edge Gateway)**: `https://dss-coll.regione.puglia.it/edge/fastapi` (Prod: `https://dss.regione.puglia.it/edge/fastapi`)  
+**Stato**: 🎯 **Causa Radice Identificata al 100% — Disallineamento Routing Edge Gateway (Spring Boot)**
 
 ---
 
 ## 📋 Indice
 
-1. [Sintesi del Problema Riscontrato](#1-sintesi-del-problema-riscontrato)
-2. [Analisi degli Header Ricevuti dal Cliente](#2-analisi-degli-header-ricevuti-dal-cliente)
-3. [Le 3 Cause Principali Identificate](#3-le-3-cause-principali-identificate)
-4. [Copione della Chiamata Live (Step-by-Step)](#4-copione-della-chiamata-live-step-by-step)
-5. [Snippet di Test e Diagnostica (Comandi cURL)](#5-snippet-di-test-e-diagnostica-comandi-curl)
-6. [Soluzioni Tecniche Pronte nel Codice](#6-soluzioni-tecniche-pronte-nel-codice)
-7. [Verifica e Fix del Deployment Kubernetes (K8s)](#7-verifica-e-fix-del-deployment-kubernetes-k8s)
+1. [Sintesi della Diagnosi Definitiva](#1-sintesi-della-diagnosi-definitiva)
+2. [Analisi dei Risultati dei Test di Valentino (DevOps)](#2-analisi-dei-risultati-dei-test-di-valentino-devops)
+3. [La Causa Radice: Mancato Routing / StripPrefix sull'Edge Gateway](#3-la-causa-radice-mancato-routing--stripprefix-sulledge-gateway)
+4. [La Soluzione Operativa (Cosa deve fare il DevOps)](#4-la-soluzione-operativa-cosa-deve-fare-il-devops)
+5. [Snippet di Test e Diagnostica Post-Fix (cURL + Postman)](#5-snippet-di-test-e-diagnostica-post-fix-curl--postman)
+6. [Stato dell'Applicazione FastAPI (Patch Già Applicate)](#6-stato-dellapplicazione-fastapi-patch-già-applicate)
+7. [Configurazione di Riferimento K8s / Ingress / Gateway](#7-configurazione-di-riferimento-k8s--ingress--gateway)
 8. [Checklist Finale di Chiusura Chiamata](#8-checklist-finale-di-chiusura-chiamata)
 9. [Appendice: Report di Validazione Live in Locale](#9-appendice-report-di-validazione-live-in-locale)
 
 ---
 
-## 1. Sintesi del Problema Riscontrato
+## 1. Sintesi della Diagnosi Definitiva
 
-Il cliente ha effettuato test sulle chiamate API dopo l'aggiornamento a **MongoDB 8.0 / PyMongo** e ha ricevuto una risposta con payload vuoto (`content-length: 0`) accompagnata da header di sicurezza del Reverse Proxy/Gateway aziendale di Regione Puglia (`dss.regione.puglia.it` / `dss-coll.regione.puglia.it`).
+Grazie ai test condotti da Valentino (DevOps) sull'ambiente di collaudo con base URL `https://dss-coll.regione.puglia.it/edge/fastapi`, abbiamo la **certezza tecnica assoluta**:
 
----
-
-## 2. Analisi degli Header Ricevuti dal Cliente
-
-Analizziamo voce per voce la risposta inviata dal cliente:
-
-| Header | Valore | Significato Diagnostico |
-|---|---|---|
-| `content-length` | `0` | Il corpo della risposta HTTP è **completamente vuoto** (0 byte). |
-| `content-security-policy` | `... connect-src 'self' https://dss-coll... https://dss...` | La richiesta transita tramite il Gateway/WAF di Regione Puglia (DSS). |
-| `vary` | `Origin, Access-Control-Request-Method, Access-Control-Request-Headers` | La richiesta è stata valutata come cross-origin (CORS) o preflight da un browser/client. |
-| `cache-control` | `no-cache, no-store, max-age=0, must-revalidate` | Risposta non cachata (tipico di redirect, preflight o chiamate API). |
-| `x-frame-options`, `strict-transport-security` | Standard DSS | Header di sicurezza iniettati dall'Ingress/Reverse Proxy DSS. |
+> ⚠️ **Le chiamate API non raggiungono il container FastAPI.**  
+> Vengono intercettate e gestite dall'**Edge Gateway (Spring Boot 3 / Spring Cloud Gateway)** di Regione Puglia posizionato a path `/edge/`, che non ha una regola di routing/StripPrefix attiva per inoltrare le richieste verso il Service Kubernetes di FastAPI (`fastapi-service`).
 
 ---
 
-## 3. Le 3 Cause Principali Identificate
+## 2. Analisi dei Risultati dei Test di Valentino (DevOps)
 
-### Causa A: Trailing Slash Redirect (Status `307 Temporary Redirect`)
-- In FastAPI, l'endpoint `@router.get("/")` sotto il prefisso `/collections` risponde a `/collections/`.
-- Se il client chiama `GET /collections` (senza slash finale), FastAPI risponde con **`307 Temporary Redirect`** verso `/collections/` con body vuoto (`content-length: 0`).
-- Se il client HTTP, Postman, il browser o il gateway non segue automaticamente il redirect, l'utente vede una risposta vuota a 0 byte.
+Ecco l'analisi puntuale degli esiti rilevati da Valentino:
 
-### Causa B: Richiesta Preflight CORS (`OPTIONS`) non gestita
-- Se la chiamata parte da una web application su `dss.regione.puglia.it` o `dss-coll.regione.puglia.it`, il browser invia prima una richiesta HTTP `OPTIONS`.
-- Se `CORSMiddleware` non è configurato in FastAPI, l'applicazione risponde con `405 Method Not Allowed`, bloccando il payload.
+### 1. `GET /edge/fastapi/health` ➡️ `HTTP 404 Not Found`
+* **Cosa significa**: Il gateway non trova una route configurata per `/edge/fastapi/health` e risponde 404 a livello gateway. La richiesta non arriva mai all'endpoint `/health` di FastAPI.
 
-### Causa C: Regola `rewrite-target` errata nell'Ingress Kubernetes
-- Nel manifest Ingress K8s, l'annotazione `nginx.ingress.kubernetes.io/rewrite-target: /` senza cattura regex riscrittiva (`/(.*)` -> `/$1`) può riscrivere qualsiasi URI (es. `/collections/cittadini/data`) a `/`, servendo l'endpoint root anziché l'API richiesta.
+### 2. `GET /edge/fastapi/collections/` ➡️ `HTTP 404 Not Found`
+* **Messaggio esatto restituito**:
+  ```json
+  {
+    "detail": "No static resource fastapi/collections.",
+    "instance": "/edge/fastapi/collections/"
+  }
+  ```
+* **🔍 Prova Schiacciante**: Questo formato di errore (RFC 7807 Problem Details con il testo `"No static resource ..."`) è la firma esclusiva di **Spring Boot 3 / Spring Framework (Java)**. FastAPI/Python non genera mai questo tipo di messaggio. Il Gateway Spring Boot cerca un file statico interno anziché fare da proxy verso il container FastAPI.
 
-### 💡 Regola pratica per la certezza assoluta
+### 3. `GET /edge/fastapi/collections` (senza slash) ➡️ `HTTP 500 Internal Server Error` (`Content-Length: 0`)
+* **Cosa significa**: Senza trailing slash, l'Edge Gateway fallisce internamente il matching della route o la gestione del forward e va in crash interno restituendo un errore 500 a body vuoto.
 
-Per sapere con esattezza quale sia la causa, basta chiedere **un solo dato** ai DevOps / al cliente: **lo Status Code HTTP della risposta**.
+### 4. `OPTIONS /edge/fastapi/collections/` ➡️ `HTTP 200 OK` con header CORS
+* **Cosa significa**: La risposta CORS con `Access-Control-Allow-Origin: https://dss-coll.regione.puglia.it` è generata direttamente dai filtri CORS dell'Edge Gateway Java, a ulteriore conferma che la chiamata si ferma al Gateway.
+
+### 5. `GET /edge/fastapi/collections/cittadini/data?page=1&page_size=2` ➡️ `HTTP 500 Internal Server Error` (`Content-Length: 0`)
+* **Cosa significa**: Stesso errore del punto 3: il gateway non sa dove inoltrare la richiesta a sub-path e crasha con 500.
+
+---
+
+## 3. La Causa Radice: Mancato Routing / StripPrefix sull'Edge Gateway
+
+L'infrastruttura di Regione Puglia DSS usa un'architettura a microservizi dietro un Edge Gateway:
+
+```
+[Browser / Frontend DSS]
+           │
+           ▼
+[Edge Gateway (Spring Boot / Java) @ /edge/ ]
+           │
+           ├── ❌ Mancante regola di proxying per /edge/fastapi/**
+           ├── ❌ Mancante StripPrefix (per eliminare "/edge/fastapi")
+           │
+           ▼ (NON RAGGIUNTO)
+[Service K8s: fastapi-service:80]
+           │
+           ▼ (NON RAGGIUNTO)
+[Container FastAPI (Python 3.11 + PyMongo + MongoDB 8.0)]
+```
+
+### 💡 Tabella Interpretazione Rapida Status Code:
 
 - **Se Status Code = 307:** ➡️ La causa è lo **slash mancante** (FastAPI esegue il redirect con body vuoto `content-length: 0`).
-- **Se Status Code = 200 / 204:** ➡️ La causa è legata a **CORS / chiamata preflight `OPTIONS`** (il browser riceve risposta ok dal preflight ma non esegue la GET reale, oppure il body è vuoto).
-- **Se Status Code = 401 / 403 / 502 / 503:** ➡️ La causa è a monte, sul **Gateway / Ingress / WAF di Regione Puglia** (mancata autenticazione, route inesistente o backend irraggiungibile).
+- **Se Status Code = 200 / 204 su OPTIONS ma blocco su GET:** ➡️ La causa è legata a **CORS / preflight**.
+- **Se Status Code = 404 con "No static resource" / 500 a Content-Length 0:** ➡️ La causa è sul **Gateway / Routing a monte** (Gateway non inoltra a FastAPI).
 
 ---
 
-## 4. Copione della Chiamata Live (Step-by-Step)
+## 4. La Soluzione Operativa (Cosa deve fare il DevOps)
 
-Durante la chiamata con Claudio e Simona, seguire questa scaletta:
+Valentino deve configurare la Route nell'Edge Gateway (Spring Cloud Gateway / Ingress K8s) con **due requisiti fondamentali**:
 
-### 🔹 Minuto 0-5: Accoglienza e Chiarimento Dati
-1. Ringraziare per il riscontro e condividere lo schermo.
-2. Chiedere a Claudio/Simona:
-   - *"Qual è l'URL esatto che stavate chiamando?"* (es. `/health`, `/collections`, `/collections/cittadini/data`)
-   - *"Qual è il metodo HTTP usato?"* (GET, POST, etc.)
-   - *"Lo state chiamando da browser, Postman o curl?"*
-   - *"Qual è lo Status Code numerico?"* (200, 307, 404, 405, 502)
+### 1. Predicato di Matching
+- Intercettare il path: `/edge/fastapi/**`
 
-### 🔹 Minuto 5-15: Esecuzione Test Live Guidati
-Eseguire insieme a loro i comandi cURL diagnostici (mostrati nella Sezione 5):
-1. Test `/health` (verifica connettività base e MongoDB 8).
-2. Test `/collections` vs `/collections/` (con `-i` per vedere lo status code 307 vs 200).
-3. Test `-L` (follow redirect).
-4. Test paginazione `/collections/cittadini/data?page=1&page_size=2`.
+### 2. Filtro StripPrefix / Rewrite Path
+- Rimuovere `/edge/fastapi` prima dell'inoltro al backend, in modo che:
+  - `GET /edge/fastapi/health` ➔ venga recapitato a FastAPI come **`GET /health`**
+  - `GET /edge/fastapi/collections/` ➔ venga recapitato a FastAPI come **`GET /collections/`**
+  - `GET /edge/fastapi/collections/cittadini/data` ➔ venga recapitato a FastAPI come **`GET /collections/cittadini/data`**
 
-### 🔹 Minuto 15-25: Applicazione dei Fix
-1. Mostrare il supporto doppio per trailing slash (`/collections` e `/collections/` senza redirect 307).
-2. Mostrare l'abilitazione di `CORSMiddleware` in FastAPI.
-3. Rilasciare/applicare la patch.
+### 3. Target URI
+- Puntare al Service interno del cluster Kubernetes:
+  - `http://fastapi-service.dss.svc.cluster.local:80` (o `http://fastapi-service:80`)
 
-### 🔹 Minuto 25-30: Validazione Finale e Chiusura
-1. Ripetere la chiamata del cliente: deve restituire `HTTP 200 OK` con il payload JSON.
-2. Confermare che MongoDB 8 risponde correttamente su tutti gli endpoint.
-
----
-
-## 5. Snippet di Test e Diagnostica (Comandi cURL)
-
-> 💡 **Nota sulle URL di Test**:  
-> Negli snippet sottostanti, sostituisci `[API_BASE_URL]` con l'effettivo endpoint del servizio backend concordato con i DevOps (es. `https://fastapi.dss.regione.puglia.it` oppure `https://dss.regione.puglia.it/api/mongo`).  
-> L'origine frontend nelle richieste CORS (`Origin`) corrisponde al portale DSS: `https://dss.regione.puglia.it` o `https://dss-coll.regione.puglia.it`.
-
-### Test 1: Health Check (Verifica Base Backend)
-```bash
-# Sostituire con l'effettivo host del backend FastAPI
-curl -i -X GET "[API_BASE_URL]/health"
-```
-**Output atteso**:
-```http
-HTTP/1.1 200 OK
-content-type: application/json
-
-{"status":"healthy","mongodb":"connected","database":"testdb","version":"1.0.0"}
+#### Esempio Configurazione Spring Cloud Gateway (se configurato in YAML/properties):
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: fastapi-mongo-api
+          uri: http://fastapi-service:80
+          predicates:
+            - Path=/edge/fastapi/**
+          filters:
+            - StripPrefix=2
 ```
 
 ---
 
-### Test 2: Verifica Trailing Slash (Senza Redirect)
-```bash
-# Chiamata CON slash finale:
-curl -i -X GET "[API_BASE_URL]/collections/"
+## 5. Snippet di Test e Diagnostica Post-Fix (cURL + Postman)
 
-# Chiamata SENZA slash finale (per verificare se restituisce 307):
-curl -i -X GET "[API_BASE_URL]/collections"
+Una volta allineata la route sul Gateway, eseguire i seguenti test con il base URL reale `https://dss-coll.regione.puglia.it/edge/fastapi`:
 
-# Chiamata con Follow Redirect (-L):
-curl -i -L -X GET "[API_BASE_URL]/collections"
-```
+### 🧪 Test 1: Health Check
+* **cURL**:
+  ```bash
+  curl -i -X GET "https://dss-coll.regione.puglia.it/edge/fastapi/health"
+  ```
+* **Postman**: `GET https://dss-coll.regione.puglia.it/edge/fastapi/health`
+* **Esito atteso**: `HTTP/1.1 200 OK`
+  ```json
+  {"status":"healthy","mongodb":"connected","database":"testdb","version":"1.0.0"}
+  ```
 
 ---
 
-### Test 3: Verifica Preflight CORS (Simulazione Chiamata da Frontend DSS)
-```bash
-curl -i -X OPTIONS "[API_BASE_URL]/collections/" \
-  -H "Origin: https://dss.regione.puglia.it" \
-  -H "Access-Control-Request-Method: GET" \
-  -H "Access-Control-Request-Headers: Content-Type, Authorization"
-```
+### 🧪 Test 2: Lista Collezioni (Test Trailing Slash)
+* **cURL (con slash)**:
+  ```bash
+  curl -i -X GET "https://dss-coll.regione.puglia.it/edge/fastapi/collections/"
+  ```
+* **cURL (senza slash)**:
+  ```bash
+  curl -i -X GET "https://dss-coll.regione.puglia.it/edge/fastapi/collections"
+  ```
+* **Postman**: `GET https://dss-coll.regione.puglia.it/edge/fastapi/collections/`
+* **Esito atteso**: `HTTP/1.1 200 OK` con lista JSON delle 7 collezioni.
 
-#### 🎯 Interpretazione Risultati del Test CORS (Prova del Nove):
+---
+
+### 🧪 Test 3: Preflight CORS (Simulazione Frontend)
+* **cURL**:
+  ```bash
+  curl -i -X OPTIONS "https://dss-coll.regione.puglia.it/edge/fastapi/collections/" \
+    -H "Origin: https://dss-coll.regione.puglia.it" \
+    -H "Access-Control-Request-Method: GET" \
+    -H "Access-Control-Request-Headers: Content-Type, Authorization"
+  ```
+* **Esito atteso**: `HTTP/1.1 200 OK` con header `Access-Control-Allow-Origin: https://dss-coll.regione.puglia.it`.
+
+#### 🎯 Interpretazione Risultati CORS (Note Operative):
 - **🟢 Caso 1: CORS configurato e funzionante**
-  - **Risposta**: `HTTP/1.1 200 OK` con header `Access-Control-Allow-Origin: https://dss.regione.puglia.it`.
-  - **Verdetto**: Il backend/gateway autorizza correttamente il frontend. Il preflight CORS è a posto.
-- **🔴 Caso 2: CORS mancante o bloccato (Status 200/204 senza header, o 405)**
-  - **Risposta**: `405 Method Not Allowed` oppure `200/204` **SENZA** `Access-Control-Allow-Origin`.
-  - **Verdetto**: Il browser del frontend blocca la chiamata e riceve una risposta vuota (`content-length: 0`).
-  - **Soluzione immediata**: Deployare l'immagine con `CORSMiddleware` abilitato.
+  - **Risposta**: `HTTP/1.1 200 OK` con header `Access-Control-Allow-Origin`.
+  - **Verdetto**: Preflight a posto.
+- **🔴 Caso 2: CORS mancante o bloccato**
+  - **Risposta**: `405 Method Not Allowed` o `200/204` senza header `Access-Control-Allow-Origin`.
+  - **Soluzione**: Deploy dell'immagine aggiornata con `CORSMiddleware`.
 
-#### 🚀 Procedura di Rilascio Immagine su K8s (se Status Code = 200/204 vuoto per CORS):
+#### 🚀 Procedura di Rilascio Immagine su K8s (se necessario rebuild):
 ```bash
 # 1. Build e push della nuova immagine sul registry aziendale
 docker build -t your-registry/mongo-fastapi:v1.0.1 -f deployment/docker/Dockerfile.prod .
@@ -163,17 +184,23 @@ kubectl rollout restart deployment/fastapi-mongodb-api -n dss
 
 ---
 
-### Test 4: Recupero Dati e Paginazione
-```bash
-curl -i -L -X GET "[API_BASE_URL]/collections/cittadini/data?page=1&page_size=2"
-```
+### 🧪 Test 4: Recupero Dati e Paginazione
+* **cURL**:
+  ```bash
+  curl -i -X GET "https://dss-coll.regione.puglia.it/edge/fastapi/collections/cittadini/data?page=1&page_size=2"
+  ```
+* **Postman**: `GET https://dss-coll.regione.puglia.it/edge/fastapi/collections/cittadini/data?page=1&page_size=2`
+* **Esito atteso**: `HTTP/1.1 200 OK` con 2 record e metadata (`total_count: 6`, `total_pages: 3`, `has_next: true`).
 
 ---
 
-### Test 5: Metadata Schema e Indici
-```bash
-curl -i -L -X GET "[API_BASE_URL]/collections/cittadini/metadata"
-```
+### 🧪 Test 5: Metadata Schema e Indici
+* **cURL**:
+  ```bash
+  curl -i -X GET "https://dss-coll.regione.puglia.it/edge/fastapi/collections/cittadini/metadata"
+  ```
+* **Postman**: `GET https://dss-coll.regione.puglia.it/edge/fastapi/collections/cittadini/metadata`
+* **Esito atteso**: `HTTP/1.1 200 OK` con 15 campi tipizzati e 4 indici.
 
 ---
 
@@ -246,29 +273,53 @@ app.include_router(sql.router)
 
 ---
 
-## 7. Verifica e Fix del Deployment Kubernetes (K8s)
+## 7. Configurazione di Riferimento K8s / Ingress / Gateway
 
-### 📌 Diagnosi Errori a Monte: 401, 403, 502, 503
-
-Se durante i test si ricevono questi codici, il problema non è nel codice Python ma nell'instradamento o nella sicurezza dell'infrastruttura di Regione Puglia:
+### 📌 Diagnosi Errori a Monte: 401, 403, 502, 503, 404
 
 | Status Code | Causa Tecnica | Cosa Verificare / Azione da Fare |
 |---|---|---|
-| **`401 Unauthorized` / `403 Forbidden`** | Il **WAF / Gateway di Regione Puglia** o l'Ingress richiede un token OAuth2/JWT aziendale, cookie di sessione o whitelist IP e blocca prima di arrivare al container. | Verificare con i DevOps se l'API richiede autenticazione a monte o se il WAF blocca la richiesta. (*Nota: il 403 è ambiguo perché può anche derivare da un blocco severo CORS lato browser*). |
-| **`502 Bad Gateway` / `503 Service Unavailable`** | L'Ingress NGINX non riesce a raggiungere il container FastAPI (pod crashato, service K8s non collegato o readiness probe fallita). | Verificare lo stato dei Pod e i probe `/health` con i comandi kubectl sotto. |
-| **`404 Not Found`** | Regola di routing o `rewrite-target` errata nell'Ingress K8s (il path viene riscritto male prima di raggiungere FastAPI). | Correggere le regole di routing e rewrite nell'Ingress. |
+| **`404 Not Found` (No static resource)** | L'**Edge Gateway (Spring Boot)** non matcha la route `/edge/fastapi/**` e cerca una risorsa locale statica invece di fare da proxy verso FastAPI. | Configurare la route con `StripPrefix=2` verso `fastapi-service:80`. |
+| **`500 Internal Server Error` (Content-Length: 0)** | L'Edge Gateway crasha internamente nel tentativo di fare routing su path non conformi o senza slash. | Correggere la regola di routing del Gateway. |
+| **`401 Unauthorized` / `403 Forbidden`** | Il **WAF / Gateway di Regione Puglia** o l'Ingress richiede un token OAuth2/JWT aziendale, cookie di sessione o whitelist IP. | Verificare con i DevOps le policy di sicurezza sul Gateway. (*Nota: il 403 può anche derivare da un blocco severo CORS lato browser*). |
+| **`502 Bad Gateway` / `503 Service Unavailable`** | L'Ingress/Gateway non riesce a raggiungere il pod FastAPI (pod crashato, service K8s non collegato o readiness probe fallita). | Verificare lo stato dei Pod con i comandi kubectl sotto. |
 
 ---
 
 ### ⚙️ Configurazione Ingress NGINX (`deployment/kubernetes/05-ingress.yaml`)
 
-Ci sono **2 scenari possibili** per esporre FastAPI:
+Se il routing viene gestito tramite Ingress Kubernetes:
 
-#### Scenario A: Dominio/Sottodominio Dedicato (es. `https://fastapi.dss.regione.puglia.it`)
-Se il servizio risponde direttamente sulla radice del suo host:
-- **Regola**: `path: /`
-- **IMPORTANTE**: **NON** impostare `nginx.ingress.kubernetes.io/rewrite-target: /` (sovrascriverebbe tutti i sub-path come `/collections/cittadini/data` trasformandoli in `/`).
+#### Scenario A: Sotto-Percorso Condiviso (es. `https://dss-coll.regione.puglia.it/edge/fastapi/...`)
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fastapi-ingress
+  namespace: dss
+  labels:
+    app: fastapi-mongodb-api
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://dss.regione.puglia.it, https://dss-coll.regione.puglia.it, *"
+spec:
+  rules:
+  - host: dss-coll.regione.puglia.it
+    http:
+      paths:
+      - path: /edge/fastapi(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: fastapi-service
+            port:
+              number: 80
+```
 
+#### Scenario B: Dominio/Sottodominio Dedicato (es. `https://fastapi.dss.regione.puglia.it`)
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -281,8 +332,6 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "https://dss.regione.puglia.it, https://dss-coll.regione.puglia.it, *"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
 spec:
   rules:
   - host: fastapi.dss.regione.puglia.it
@@ -297,55 +346,19 @@ spec:
               number: 80
 ```
 
-#### Scenario B: Sotto-Percorso Condiviso (es. `https://dss.regione.puglia.it/api/mongo/...`)
-Se l'API condivide il dominio del portale DSS e usa un prefisso:
-- **Regola**: usare regex per rimuovere il prefisso prima di inoltrare la richiesta a FastAPI:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: fastapi-ingress
-  namespace: dss
-  labels:
-    app: fastapi-mongodb-api
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-spec:
-  rules:
-  - host: dss.regione.puglia.it
-    http:
-      paths:
-      - path: /api/mongo(/|$)(.*)
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: fastapi-service
-            port:
-              number: 80
-```
-
 ---
 
-### 💻 Diagnostica Live sui Pod K8s durante la Call
-
-Fai eseguire questi 3 comandi ai DevOps durante la sessione:
+### 💻 Diagnostica Live sui Pod K8s per il DevOps:
 
 ```bash
-# 1. Verificare se i pod sono Running e pronti
+# 1. Verificare che i pod FastAPI siano attivi e pronti
 kubectl get pods -n dss -l app=fastapi-mongodb-api
 
-# 2. Leggere i log in tempo reale per vedere se la richiesta arriva al container
+# 2. Seguire i log in tempo reale durante i test
 kubectl logs -f -n dss -l app=fastapi-mongodb-api --tail=100
-# -> Se nei log non compare nulla: la chiamata è bloccata a monte (Gateway/Ingress 401/403).
-# -> Se nei log compare la riga: vedi lo status esatto restituito da FastAPI.
+# -> Se la route del Gateway funziona, vedrai comparire le richieste con "GET /health 200 OK".
 
-# 3. Verificare che l'Ingress punti correttamente agli Endpoint del Service
-kubectl describe ingress fastapi-ingress -n dss
-# -> Controllare che la voce 'Backends' mostri gli IP dei Pod e non '<none>' (causa di 502/503).
-
-# 4. Test diretto interno al cluster (bypassa Ingress e Gateway)
+# 3. Test diretto interno al cluster (bypassa l'Edge Gateway per prova del nove)
 kubectl run curl-test --rm -i --tty --image=curlimages/curl -- \
   curl -i http://fastapi-service.dss.svc.cluster.local/health
 ```
@@ -354,13 +367,11 @@ kubectl run curl-test --rm -i --tty --image=curlimages/curl -- \
 
 ## 8. Checklist Finale di Chiusura Chiamata
 
-- [ ] Identificato l'URL esatto chiamato dal client
-- [ ] Verificato lo Status Code HTTP ricevuto
-- [ ] Testato `/health` (confermato `mongodb: connected`, versione 8.0)
-- [ ] Eliminato il redirect 307 sul trailing slash (`/collections` e `/collections/`)
-- [ ] Abilitato `CORSMiddleware` in FastAPI per richieste da browser
-- [ ] Allineato l'Ingress Kubernetes (se routing su subpath)
-- [ ] Eseguito smoke test congiunto con Claudio e Simona
+- [x] Causa radice individuata: **Routing / StripPrefix mancante su Edge Gateway**
+- [ ] Valentino (DevOps) aggiorna la route su `/edge/fastapi/**` con `StripPrefix=2` verso `fastapi-service:80`
+- [ ] Esecuzione test `/edge/fastapi/health` ➔ `200 OK`
+- [ ] Esecuzione test `/edge/fastapi/collections/` ➔ `200 OK`
+- [ ] Esecuzione test paginazione `/edge/fastapi/collections/cittadini/data?page=1&page_size=2` ➔ `200 OK`
 - [ ] Confermato esito positivo e chiusura issue
 
 ---
