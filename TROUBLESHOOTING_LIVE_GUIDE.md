@@ -407,6 +407,8 @@ Tutti gli endpoint hanno risposto con **latenza inferiore a 10 ms**, confermando
 
 
 
+----
+```yaml
 # ==============================================================================
 # PARTE 1: IL MIDDLEWARE (LA "FORFICE" DI TRAEFIK)
 # Serve a tagliare il prefisso "/edge/fastapi" dall'URL prima che arrivi a FastAPI.
@@ -451,3 +453,4 @@ spec:
             name: fastapi-service     # Il nome del Service Kubernetes interno che punta ai tuoi Pod/Container FastAPI
             port:
               number: 8000            # La porta interna su cui l'applicazione FastAPI è in ascolto
+              ```
