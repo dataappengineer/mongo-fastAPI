@@ -41,3 +41,9 @@ Thumbs.db
 # Logs
 *.log
 handoff_mongodb_upgrade.md
+MAIL_CONSEGNA.txt
+cassetto*
+
+# Docker archives
+*.tar
+*.tar.gz

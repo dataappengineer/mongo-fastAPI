@@ -10,11 +10,13 @@ API REST sviluppata con FastAPI e PyMongo per interagire con database MongoDB. F
 
 **Key improvements for production:**
 - ✅ Production-optimized Dockerfile (no `--reload`, multiple workers)
-- ✅ MongoDB health check in `/health` endpoint
+- ✅ MongoDB health check in `/health` endpoint con diagnostica in tempo reale
+- ✅ Verbocità avanzata ed esplicita per log ed errori di autenticazione/connessione
 - ✅ Complete Kubernetes manifests (Deployment, Service, Ingress, ConfigMap, Secret)
 - ✅ Comprehensive deployment guide with troubleshooting
 
 **Quick links:**
+- 🔍 **[Guida Log e Verbocità Errori (v1.0.1)](GUIDA_LOG_E_VERBOSITA_ERRORI.md)** - Esempi pratici di diagnostica
 - 📖 **[Production Deployment Guide](deployment/README.md)** - Complete step-by-step instructions
 - 🎯 **[Kubernetes Quick Reference](deployment/kubernetes/README.md)** - Commands and troubleshooting
 - 🐳 **[Production Dockerfile](deployment/docker/Dockerfile.prod)** - Optimized for Kubernetes
