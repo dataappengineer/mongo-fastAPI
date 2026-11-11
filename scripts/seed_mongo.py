@@ -16,16 +16,32 @@ def seed_database():
     """Seed the database with test collections for Regione Puglia."""
     
     # Connection settings
+    mongo_uri = os.getenv("MONGO_URI", "").strip()
     mongo_host = os.getenv("MONGO_HOST", "localhost")
     mongo_port = int(os.getenv("MONGO_PORT", "27017"))
     mongo_db = os.getenv("MONGO_DB", "testdb")
     
-    print(f"🔌 Connecting to MongoDB at {mongo_host}:{mongo_port}...")
-    
     try:
         # Connect to MongoDB
-        client = MongoClient(f"mongodb://{mongo_host}:{mongo_port}/")
-        db = client[mongo_db]
+        if mongo_uri:
+            # Mask password for display
+            import re
+            masked = re.sub(r"://([^:]+):([^@]+)@", r"://\1:****@", mongo_uri)
+            print(f"🔌 Connecting to MongoDB via MONGO_URI: {masked}...")
+            client = MongoClient(mongo_uri)
+            try:
+                default_db = client.get_default_database()
+                if default_db is not None:
+                    db = default_db
+                    mongo_db = default_db.name
+                else:
+                    db = client[mongo_db]
+            except Exception:
+                db = client[mongo_db]
+        else:
+            print(f"🔌 Connecting to MongoDB at {mongo_host}:{mongo_port}...")
+            client = MongoClient(f"mongodb://{mongo_host}:{mongo_port}/")
+            db = client[mongo_db]
         
         print(f"✅ Connected to database: {mongo_db}")
         

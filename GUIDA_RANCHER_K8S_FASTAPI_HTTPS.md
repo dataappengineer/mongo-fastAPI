@@ -166,6 +166,12 @@ spec:
               containerPort: 8443
               protocol: TCP
           env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  key: mongo-uri
+                  name: mongo-fastapi-secret
+                  optional: true
             - name: MONGO_HOST
               value: 172.28.23.8
             - name: MONGO_PORT
@@ -177,11 +183,13 @@ spec:
                 secretKeyRef:
                   key: mongo-user
                   name: mongo-fastapi-secret
+                  optional: true
             - name: MONGO_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: mongo-password
                   name: mongo-fastapi-secret
+                  optional: true
           volumeMounts:
             - name: fastapi-tls-volume
               mountPath: /etc/tls
@@ -221,6 +229,20 @@ spec:
             secretName: fastapi-tls
             defaultMode: 0400
 ```
+
+### 1.1 Configurazione Secret per MongoDB Replica Set con TLS (`mongo-fastapi-secret`)
+
+A seguito dell'abilitazione del protocollo TLS sul cluster MongoDB del cliente, l'applicazione supporta la variabile `MONGO_URI`. La stringa di connessione gestisce nativamente:
+- I nodi multipli del Replica Set (`dpc-db-mds1-l01:27017,dpc-db-mds1-l02:27017,dpc-db-mds1-l03:27017`);
+- L'autenticazione con `authSource=admin`;
+- La cifratura TLS abilitata con bypass della validazione hostname/certificati interni: `tls=true&tlsAllowInvalidCertificates=true&tlsAllowInvalidHostnames=true`.
+
+#### Creazione / Aggiornamento del Secret `mongo-fastapi-secret` su PowerShell (riga singola):
+```powershell
+kubectl create secret generic mongo-fastapi-secret --from-literal=mongo-uri="mongodb://<utente>:<password>@dpc-db-mds1-l01.dpc.localdomain:27017,dpc-db-mds1-l02.dpc.localdomain:27017,dpc-db-mds1-l03.dpc.localdomain:27017/DPB_MG_DR?authSource=admin&tls=true&tlsAllowInvalidCertificates=true&tlsAllowInvalidHostnames=true" -n metadata --dry-run=client -o yaml | kubectl apply -f -
+```
+
+*(In alternativa tramite interfaccia Rancher: Namespace `metadata` > **Storage** > **Secrets** > cliccare su `mongo-fastapi-secret` > **Edit** > aggiungere la chiave `mongo-uri` contenente la stringa completa).*
 
 ---
 

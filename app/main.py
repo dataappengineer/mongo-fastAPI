@@ -13,6 +13,9 @@ from app.logging_config import setup_logging, diagnose_mongo_error
 from app.database import (
     close_connection,
     check_mongo_connection,
+    MONGO_URI,
+    MONGO_TLS_ENABLED,
+    get_sanitized_uri,
     MONGO_HOST,
     MONGO_PORT,
     MONGO_DB,
@@ -33,22 +36,31 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("=" * 60)
     logger.info("🚀 Avvio FastAPI MongoDB REST API v1.0.0...")
-    logger.info(
-        "⚙️ Configurazione iniziale MongoDB: host='%s', port=%d, db='%s', user='%s'",
-        MONGO_HOST,
-        MONGO_PORT,
-        MONGO_DB,
-        MONGO_USER or "(no-auth)",
-    )
+    if MONGO_URI:
+        logger.info(
+            "⚙️ Configurazione iniziale MongoDB (da MONGO_URI, TLS=%s): target='%s', db='%s', user='%s'",
+            MONGO_TLS_ENABLED,
+            get_sanitized_uri(MONGO_URI),
+            MONGO_DB,
+            MONGO_USER or "(no-auth)",
+        )
+    else:
+        logger.info(
+            "⚙️ Configurazione iniziale MongoDB (legacy): host='%s', port=%d, db='%s', user='%s'",
+            MONGO_HOST,
+            MONGO_PORT,
+            MONGO_DB,
+            MONGO_USER or "(no-auth)",
+        )
     is_ok, latency, summary, err = check_mongo_connection()
     if is_ok:
         logger.info("✅ Connessione iniziale MongoDB: OK (latenza: %.2f ms)", latency)
     else:
+        target_desc = get_sanitized_uri(MONGO_URI) if MONGO_URI else f"{MONGO_HOST}:{MONGO_PORT}"
         logger.warning(
-            "⚠️ ATTENZIONE: Connessione iniziale MongoDB non riuscita su %s:%d! "
+            "⚠️ ATTENZIONE: Connessione iniziale MongoDB non riuscita su %s! "
             "FastAPI si avvia comunque, ma le chiamate database falliranno finché MongoDB non sarà raggiungibile.",
-            MONGO_HOST,
-            MONGO_PORT,
+            target_desc,
         )
     logger.info("📊 FastAPI REST API pronta all'uso.")
     logger.info("=" * 60)
@@ -190,6 +202,8 @@ async def health_check():
             "database": config_summary["database"],
             "host": config_summary["host"],
             "port": config_summary["port"],
+            "uri_configured": config_summary.get("uri_configured", False),
+            "tls_enabled": config_summary.get("tls_enabled", False),
             "auth_configured": config_summary["user_configured"],
             "latency_ms": latency_ms,
             "version": "1.0.0",
@@ -202,6 +216,8 @@ async def health_check():
             "database": config_summary["database"],
             "host": config_summary["host"],
             "port": config_summary["port"],
+            "uri_configured": config_summary.get("uri_configured", False),
+            "tls_enabled": config_summary.get("tls_enabled", False),
             "auth_configured": config_summary["user_configured"],
             "latency_ms": latency_ms,
             "version": "1.0.0",

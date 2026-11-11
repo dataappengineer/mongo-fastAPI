@@ -99,7 +99,27 @@ def diagnose_mongo_error(
             ),
         }
 
-    # 3. Connection / Timeout / Reachability Failures
+    # 3. TLS / SSL Handshake & Certificate Failures
+    if "ssl" in error_lower or "tls" in error_lower or "certificate" in error_lower or "handshake" in error_lower:
+        return {
+            "error_category": "MONGODB_TLS_HANDSHAKE_ERROR",
+            "summary": f"Errore di handshake TLS/SSL o certificato con MongoDB (target: '{host}', db: '{database}')",
+            "details": error_str,
+            "connection_target": {
+                "host": host,
+                "port": port,
+                "database": database,
+                "user": user if has_auth else "None",
+            },
+            "actionable_hint": (
+                "Verificare la configurazione TLS nella stringa di connessione MongoDB ('MONGO_URI'). "
+                "Se il cluster MongoDB utilizza certificati interni o hostname privati (.localdomain), "
+                "assicurarsi che la stringa contenga 'tls=true&tlsAllowInvalidCertificates=true&tlsAllowInvalidHostnames=true'. "
+                "Verificare inoltre che la porta 27017 sui nodi MongoDB accetti connessioni cifrate TLS."
+            ),
+        }
+
+    # 4. Connection / Timeout / Reachability Failures
     if isinstance(error, (ServerSelectionTimeoutError, ConnectionFailure, NetworkTimeout)) or "timed out" in error_lower or "name or service not known" in error_lower or "connection refused" in error_lower:
         return {
             "error_category": "MONGODB_CONNECTION_TIMEOUT",
@@ -118,7 +138,7 @@ def diagnose_mongo_error(
             ),
         }
 
-    # 4. Configuration Errors
+    # 5. Configuration Errors
     if isinstance(error, ConfigurationError):
         return {
             "error_category": "MONGODB_CONFIGURATION_ERROR",
@@ -128,7 +148,7 @@ def diagnose_mongo_error(
             "actionable_hint": "Verifica la sintassi della stringa di connessione e i parametri passati a PyMongo.",
         }
 
-    # 5. Generic PyMongo / Unexpected Error
+    # 6. Generic PyMongo / Unexpected Error
     return {
         "error_category": "MONGODB_GENERIC_ERROR",
         "summary": f"Errore MongoDB non classificato: {type(error).__name__}",
