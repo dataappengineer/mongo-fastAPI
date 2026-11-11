@@ -37,6 +37,7 @@ MONGO_USER = os.getenv("MONGO_USER", "")
 MONGO_PASSWORD = os.getenv("MONGO_PASSWORD", "")
 MONGO_TIMEOUT_MS = int(os.getenv("MONGO_TIMEOUT_MS", "5000"))
 MONGO_TLS_ENABLED = False
+MONGO_NODES = []
 
 # If MONGO_URI is defined, parse parameters and derive defaults
 if MONGO_URI:
@@ -52,7 +53,8 @@ if MONGO_URI:
             MONGO_USER = _parsed.get("username")
             
         if _parsed.get("nodelist"):
-            MONGO_HOST = ",".join(f"{h}:{p}" for h, p in _parsed["nodelist"])
+            MONGO_NODES = [f"{h}:{p}" for h, p in _parsed["nodelist"]]
+            MONGO_HOST = ",".join(MONGO_NODES)
             MONGO_PORT = _parsed["nodelist"][0][1]
             
         _opts = _parsed.get("options", {})
@@ -69,6 +71,7 @@ def get_connection_summary() -> Dict[str, Any]:
     return {
         "uri_configured": bool(MONGO_URI),
         "sanitized_uri": get_sanitized_uri(MONGO_URI) if MONGO_URI else None,
+        "nodes": MONGO_NODES if MONGO_NODES else [f"{MONGO_HOST}:{MONGO_PORT}"],
         "host": MONGO_HOST,
         "port": MONGO_PORT,
         "database": MONGO_DB,

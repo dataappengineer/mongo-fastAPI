@@ -40,26 +40,34 @@ spec:
           containerPort: 8000
           protocol: TCP
         
-        # Environment variables from ConfigMap
+        # Environment variables: MONGO_URI (recommended) or legacy ConfigMap/Secret keys
         env:
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: mongo-uri
+              optional: true
         - name: MONGO_HOST
           valueFrom:
             configMapKeyRef:
               name: mongodb-config
               key: host
+              optional: true
         - name: MONGO_PORT
           valueFrom:
             configMapKeyRef:
               name: mongodb-config
               key: port
+              optional: true
         - name: MONGO_DB
           valueFrom:
             configMapKeyRef:
               name: mongodb-config
               key: database
+              optional: true
         
-        # Optional: MongoDB credentials from Secret
-        # Remove these if your MongoDB doesn't require authentication
+        # Optional: MongoDB credentials from Secret (legacy)
         - name: MONGO_USER
           valueFrom:
             secretKeyRef:

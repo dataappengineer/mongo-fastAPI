@@ -10,12 +10,16 @@ COPY requirements.txt .
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and scripts
 COPY app/ ./app/
 COPY scripts/ ./scripts/
+COPY docker-entrypoint.sh ./
 
-# Expose port
-EXPOSE 8000
+RUN chmod +x /app/docker-entrypoint.sh
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Expose HTTP and HTTPS ports
+EXPOSE 8000 8443
+
+# Production entrypoint: auto-detects TLS certificates in /etc/tls or accepts custom commands
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD []

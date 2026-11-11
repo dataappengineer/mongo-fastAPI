@@ -61,14 +61,16 @@ def diagnose_mongo_error(
     error_str = str(error)
     error_lower = error_str.lower()
     has_auth = bool(user)
+    target_str = str(host) if ":" in str(host) else f"{host}:{port}"
 
     # 1. Authentication Failures (Check both OperationFailure and wrapped string messages)
     if "authentication failed" in error_lower or "auth error" in error_lower or "code': 18" in error_str or "authenticationfailed" in error_lower:
         return {
             "error_category": "MONGODB_AUTHENTICATION_FAILED",
-            "summary": f"Autenticazione MongoDB fallita per l'utente '{user}' sul database '{database}' (host '{host}:{port}')",
+            "summary": f"Autenticazione MongoDB fallita per l'utente '{user}' sul database '{database}' (target '{target_str}')",
             "details": error_str,
             "connection_target": {
+                "target": target_str,
                 "host": host,
                 "port": port,
                 "database": database,
@@ -77,7 +79,7 @@ def diagnose_mongo_error(
             },
             "actionable_hint": (
                 "Credenziali MongoDB non valide. Verifica 'MONGO_USER' e 'MONGO_PASSWORD' nei Secret Kubernetes "
-                "o nelle variabili d'ambiente. Assicurati che l'utente esista nel database specificato e che la password sia corretta."
+                "o la chiave 'mongo-uri' in 'mongo-fastapi-secret'. Assicurati che l'utente esista nel database 'admin' (authSource=admin) e che la password sia corretta."
             ),
         }
 
@@ -88,6 +90,7 @@ def diagnose_mongo_error(
             "summary": f"L'utente '{user}' non possiede i permessi necessari sul database '{database}'",
             "details": error_str,
             "connection_target": {
+                "target": target_str,
                 "host": host,
                 "port": port,
                 "database": database,
@@ -103,9 +106,10 @@ def diagnose_mongo_error(
     if "ssl" in error_lower or "tls" in error_lower or "certificate" in error_lower or "handshake" in error_lower:
         return {
             "error_category": "MONGODB_TLS_HANDSHAKE_ERROR",
-            "summary": f"Errore di handshake TLS/SSL o certificato con MongoDB (target: '{host}', db: '{database}')",
+            "summary": f"Errore di handshake TLS/SSL o certificato con MongoDB (target: '{target_str}', db: '{database}')",
             "details": error_str,
             "connection_target": {
+                "target": target_str,
                 "host": host,
                 "port": port,
                 "database": database,
@@ -123,18 +127,19 @@ def diagnose_mongo_error(
     if isinstance(error, (ServerSelectionTimeoutError, ConnectionFailure, NetworkTimeout)) or "timed out" in error_lower or "name or service not known" in error_lower or "connection refused" in error_lower:
         return {
             "error_category": "MONGODB_CONNECTION_TIMEOUT",
-            "summary": f"Impossibile connettersi al server MongoDB su '{host}:{port}'",
+            "summary": f"Impossibile connettersi al cluster MongoDB su '{target_str}'",
             "details": error_str,
             "connection_target": {
+                "target": target_str,
                 "host": host,
                 "port": port,
                 "database": database,
                 "user": user if has_auth else "None (No Auth)",
             },
             "actionable_hint": (
-                f"Verifica che MongoDB sia attivo e raggiungibile all'host '{host}' sulla porta {port}. "
-                "In Kubernetes, controlla il nome del Service K8s (es. 'mongodb.namespace.svc.cluster.local') "
-                "e che le NetworkPolicy consentano il traffico sulla porta 27017."
+                f"Verifica che i nodi del cluster MongoDB siano attivi e raggiungibili su '{target_str}'. "
+                "In Kubernetes, controlla che i nodi o il DNS '.dpc.localdomain' siano risolvibili dai Pod "
+                "e che le NetworkPolicy consentano il traffico in uscita (egress) sulla porta 27017."
             ),
         }
 
